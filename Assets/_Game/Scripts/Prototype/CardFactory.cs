@@ -64,10 +64,46 @@ namespace CardDuel.Prototype
             Primitives.Quad("NameBar", face, new Vector2(0f, 0.4f), new Vector2(0.6f, 0.11f), 0.001f, BarColor);
             Primitives.Text("Name", face, data.displayName, new Vector2(0f, 0.4f), new Vector2(0.56f, 0.075f), 0.002f, InkColor);
             Primitives.Text("Type", face, TypeLine(data), new Vector2(0f, 0.305f), new Vector2(0.58f, 0.05f), 0.001f, InkColor);
-            Primitives.Quad("Art", face, new Vector2(0f, 0.03f), new Vector2(0.6f, 0.44f), 0.001f, ArtColor(data));
-            Primitives.Text("Glyph", face, data.displayName.Substring(0, 1).ToUpperInvariant(), new Vector2(0f, 0.03f), new Vector2(0.3f, 0.3f), 0.002f, new Color(1f, 1f, 1f, 0.8f));
-            Primitives.Quad("StatsBar", face, new Vector2(0f, -0.33f), new Vector2(0.6f, 0.13f), 0.001f, BarColor);
-            Primitives.Text("Stats", face, StatsLine(data), new Vector2(0f, -0.33f), new Vector2(0.56f, 0.065f), 0.002f, InkColor);
+            var art = Primitives.Quad("Art", face, new Vector2(0f, 0.07f), new Vector2(0.6f, 0.34f), 0.001f, ArtColor(data));
+            if (data.artwork != null)
+            {
+                var material = Primitives.NewLit(Color.white);
+                material.SetTexture("_BaseMap", data.artwork.texture);
+                art.GetComponent<MeshRenderer>().sharedMaterial = material;
+            }
+            else
+            {
+                Primitives.Text("Glyph", face, data.displayName.Substring(0, 1).ToUpperInvariant(), new Vector2(0f, 0.07f), new Vector2(0.24f, 0.24f), 0.002f, new Color(1f, 1f, 1f, 0.8f));
+            }
+            Primitives.Quad("DescriptionBox", face, new Vector2(0f, -0.18f), new Vector2(0.6f, 0.15f), 0.001f, BarColor);
+            Primitives.Text("Description", face, Wrap(data.description, 34), new Vector2(0f, -0.18f), new Vector2(0.56f, 0.13f), 0.002f, InkColor);
+            Primitives.Quad("StatsBar", face, new Vector2(0f, -0.34f), new Vector2(0.6f, 0.1f), 0.001f, BarColor);
+            Primitives.Text("Stats", face, StatsLine(data), new Vector2(0f, -0.34f), new Vector2(0.56f, 0.06f), 0.002f, InkColor);
+        }
+
+        /// <summary>Parte el texto en líneas de como mucho <paramref name="maxChars"/> caracteres (TextMesh no ajusta solo).</summary>
+        private static string Wrap(string text, int maxChars)
+        {
+            if (string.IsNullOrEmpty(text)) return "";
+
+            var result = new System.Text.StringBuilder();
+            int lineLength = 0;
+            foreach (var word in text.Split(' '))
+            {
+                if (lineLength > 0 && lineLength + 1 + word.Length > maxChars)
+                {
+                    result.Append('\n');
+                    lineLength = 0;
+                }
+                else if (lineLength > 0)
+                {
+                    result.Append(' ');
+                    lineLength++;
+                }
+                result.Append(word);
+                lineLength += word.Length;
+            }
+            return result.ToString();
         }
 
         private static void BuildBack(Transform card)

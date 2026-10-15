@@ -53,6 +53,12 @@ namespace CardDuel.Prototype
             return faceUp ? yaw : yaw * Quaternion.Euler(0f, 0f, 180f);
         }
 
+        /// <summary>Igual que <see cref="CardRotation(bool, bool)"/>, girada hacia su dueño.</summary>
+        public static Quaternion CardRotation(int owner, bool faceUp, bool defense)
+        {
+            return Quaternion.Euler(0f, owner == 0 ? 0f : 180f, 0f) * CardRotation(faceUp, defense);
+        }
+
         public Vector3 CardPosition(BoardZone zone)
         {
             var p = zone.transform.localPosition;

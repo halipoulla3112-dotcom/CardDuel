@@ -25,12 +25,41 @@ namespace CardDuel.Cards
         public bool DefensePosition { get; set; }
         public int TurnPlaced { get; set; }
         public int PositionChangedTurn { get; set; } = -1;
+        public int Owner { get; set; }
+        public int AttackedTurn { get; set; } = -1;
+
+        /// <summary>Vida actual en el campo. Empieza igual a la DEF y baja con cada ataque recibido.</summary>
+        public int Life { get; private set; }
+
+        private static readonly Color DamagedColor = new Color(0.8f, 0.1f, 0.1f);
+        private TextMesh statsText;
+        private Color statsColor;
 
         private Vector3 homePosition;
         private Quaternion homeRotation = Quaternion.identity;
         private float lift;
 
         public void Init(CardData cardData) => data = cardData;
+
+        /// <summary>Fija la vida y actualiza la línea ATK/DEF de la cara (en rojo si está dañada).</summary>
+        public void SetLife(int life)
+        {
+            Life = Mathf.Max(life, 0);
+            if (data.cardType != CardType.Monster) return;
+
+            if (statsText == null)
+            {
+                var stats = transform.Find("Face/Stats");
+                if (stats == null) return;
+                statsText = stats.GetComponent<TextMesh>();
+                statsColor = statsText.color;
+            }
+
+            statsText.text = $"ATK {data.attack}   DEF {Life}";
+            statsText.color = Life < data.defense ? DamagedColor : statsColor;
+            var fit = statsText.GetComponent<FitText>();
+            if (fit != null) fit.enabled = true;
+        }
 
         /// <summary>Fija la posición de reposo (p. ej. su hueco en la mano) y anima hasta ella.</summary>
         public void SetHome(Vector3 localPosition, Quaternion localRotation, float duration)
