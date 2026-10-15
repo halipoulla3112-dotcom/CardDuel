@@ -2,7 +2,9 @@
     "name": "CardDuel",
     "rootNamespace": "CardDuel",
     "references": [
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "UnityEngine.UI",
+        "DOTween.Modules"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

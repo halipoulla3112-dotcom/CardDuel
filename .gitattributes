@@ -24,3 +24,5 @@
 *.ogg binary
 *.ttf binary
 *.otf binary
+*.dll binary
+*.mdb binary
