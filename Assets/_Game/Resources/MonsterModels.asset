@@ -1,0 +1,92 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5466f14405beedb41a27b1abf3e24467, type: 3}
+  m_Name: MonsterModels
+  m_EditorClassIdentifier: CardDuel::CardDuel.Cards.MonsterModelLibrary
+  entries:
+  - cardName: Caballero de Ceniza
+    model: {fileID: 919132149155446097, guid: c41c9fc5928769b46b626165e8c4476e, type: 3}
+    idle: {fileID: 9061338213343248790, guid: c41c9fc5928769b46b626165e8c4476e, type: 3}
+    move: {fileID: 1395189703230314720, guid: c41c9fc5928769b46b626165e8c4476e, type: 3}
+    attack: {fileID: -4592842328519117816, guid: c41c9fc5928769b46b626165e8c4476e, type: 3}
+    hit: {fileID: -3663672522963054737, guid: c41c9fc5928769b46b626165e8c4476e, type: 3}
+    death: {fileID: 4447012609936615250, guid: c41c9fc5928769b46b626165e8c4476e, type: 3}
+  - cardName: "Lobo R\xFAnico"
+    model: {fileID: 919132149155446097, guid: a0d755bfd1b39c64e98d3ec35865a4a9, type: 3}
+    idle: {fileID: 9061338213343248790, guid: a0d755bfd1b39c64e98d3ec35865a4a9, type: 3}
+    move: {fileID: -5599002979973759676, guid: a0d755bfd1b39c64e98d3ec35865a4a9, type: 3}
+    attack: {fileID: -7834884072323577149, guid: a0d755bfd1b39c64e98d3ec35865a4a9, type: 3}
+    hit: {fileID: -7655272897581899170, guid: a0d755bfd1b39c64e98d3ec35865a4a9, type: 3}
+    death: {fileID: 4447012609936615250, guid: a0d755bfd1b39c64e98d3ec35865a4a9, type: 3}
+  - cardName: Guardiana del Alba
+    model: {fileID: 919132149155446097, guid: 91165041a8d40aa4bb64ff1cb146b922, type: 3}
+    idle: {fileID: 9061338213343248790, guid: 91165041a8d40aa4bb64ff1cb146b922, type: 3}
+    move: {fileID: -5599002979973759676, guid: 91165041a8d40aa4bb64ff1cb146b922, type: 3}
+    attack: {fileID: -7834884072323577149, guid: 91165041a8d40aa4bb64ff1cb146b922, type: 3}
+    hit: {fileID: -7655272897581899170, guid: 91165041a8d40aa4bb64ff1cb146b922, type: 3}
+    death: {fileID: 4447012609936615250, guid: 91165041a8d40aa4bb64ff1cb146b922, type: 3}
+  - cardName: Golem de Musgo
+    model: {fileID: 919132149155446097, guid: 5e8201b117bc6d845be3a904ecbecf81, type: 3}
+    idle: {fileID: -2735293274216970117, guid: 5e8201b117bc6d845be3a904ecbecf81, type: 3}
+    move: {fileID: -7710415605997073860, guid: 5e8201b117bc6d845be3a904ecbecf81, type: 3}
+    attack: {fileID: -4592842328519117816, guid: 5e8201b117bc6d845be3a904ecbecf81, type: 3}
+    hit: {fileID: -3663672522963054737, guid: 5e8201b117bc6d845be3a904ecbecf81, type: 3}
+    death: {fileID: 4447012609936615250, guid: 5e8201b117bc6d845be3a904ecbecf81, type: 3}
+  - cardName: Espectro Errante
+    model: {fileID: 919132149155446097, guid: 4d2b7deb32a2f3147b8167151e0998b3, type: 3}
+    idle: {fileID: -2735293274216970117, guid: 4d2b7deb32a2f3147b8167151e0998b3, type: 3}
+    move: {fileID: -7710415605997073860, guid: 4d2b7deb32a2f3147b8167151e0998b3, type: 3}
+    attack: {fileID: -4592842328519117816, guid: 4d2b7deb32a2f3147b8167151e0998b3, type: 3}
+    hit: {fileID: -3663672522963054737, guid: 4d2b7deb32a2f3147b8167151e0998b3, type: 3}
+    death: {fileID: 4447012609936615250, guid: 4d2b7deb32a2f3147b8167151e0998b3, type: 3}
+  - cardName: Sirena de Coral
+    model: {fileID: 919132149155446097, guid: 423860ece8d0b434fb646d1d87a2007c, type: 3}
+    idle: {fileID: 9061338213343248790, guid: 423860ece8d0b434fb646d1d87a2007c, type: 3}
+    move: {fileID: 1395189703230314720, guid: 423860ece8d0b434fb646d1d87a2007c, type: 3}
+    attack: {fileID: -4592842328519117816, guid: 423860ece8d0b434fb646d1d87a2007c, type: 3}
+    hit: {fileID: -3663672522963054737, guid: 423860ece8d0b434fb646d1d87a2007c, type: 3}
+    death: {fileID: 4447012609936615250, guid: 423860ece8d0b434fb646d1d87a2007c, type: 3}
+  - cardName: "Halc\xF3n Tormenta"
+    model: {fileID: 919132149155446097, guid: 0f6da638e1aad254c984819220829139, type: 3}
+    idle: {fileID: 9061338213343248790, guid: 0f6da638e1aad254c984819220829139, type: 3}
+    move: {fileID: 1395189703230314720, guid: 0f6da638e1aad254c984819220829139, type: 3}
+    attack: {fileID: -4592842328519117816, guid: 0f6da638e1aad254c984819220829139, type: 3}
+    hit: {fileID: -3663672522963054737, guid: 0f6da638e1aad254c984819220829139, type: 3}
+    death: {fileID: 4447012609936615250, guid: 0f6da638e1aad254c984819220829139, type: 3}
+  - cardName: Duende Chispa
+    model: {fileID: 919132149155446097, guid: d2f9555f730d1f44d954a7c5f06571f9, type: 3}
+    idle: {fileID: -2735293274216970117, guid: d2f9555f730d1f44d954a7c5f06571f9, type: 3}
+    move: {fileID: -7710415605997073860, guid: d2f9555f730d1f44d954a7c5f06571f9, type: 3}
+    attack: {fileID: -4592842328519117816, guid: d2f9555f730d1f44d954a7c5f06571f9, type: 3}
+    hit: {fileID: -3663672522963054737, guid: d2f9555f730d1f44d954a7c5f06571f9, type: 3}
+    death: {fileID: 4447012609936615250, guid: d2f9555f730d1f44d954a7c5f06571f9, type: 3}
+  - cardName: "Palad\xEDn Solar"
+    model: {fileID: 919132149155446097, guid: 9efce2a9e11b32446908d986b68c10e4, type: 3}
+    idle: {fileID: 9061338213343248790, guid: 9efce2a9e11b32446908d986b68c10e4, type: 3}
+    move: {fileID: 1395189703230314720, guid: 9efce2a9e11b32446908d986b68c10e4, type: 3}
+    attack: {fileID: -4592842328519117816, guid: 9efce2a9e11b32446908d986b68c10e4, type: 3}
+    hit: {fileID: -3663672522963054737, guid: 9efce2a9e11b32446908d986b68c10e4, type: 3}
+    death: {fileID: 4447012609936615250, guid: 9efce2a9e11b32446908d986b68c10e4, type: 3}
+  - cardName: "Tit\xE1n de las Mareas"
+    model: {fileID: 919132149155446097, guid: 4e4b3f238c7592043ae7a3ef070d69a0, type: 3}
+    idle: {fileID: -2735293274216970117, guid: 4e4b3f238c7592043ae7a3ef070d69a0, type: 3}
+    move: {fileID: -7710415605997073860, guid: 4e4b3f238c7592043ae7a3ef070d69a0, type: 3}
+    attack: {fileID: -4592842328519117816, guid: 4e4b3f238c7592043ae7a3ef070d69a0, type: 3}
+    hit: {fileID: -3663672522963054737, guid: 4e4b3f238c7592043ae7a3ef070d69a0, type: 3}
+    death: {fileID: 4447012609936615250, guid: 4e4b3f238c7592043ae7a3ef070d69a0, type: 3}
+  - cardName: "Drag\xF3n de Obsidiana"
+    model: {fileID: 919132149155446097, guid: 78d5e4cb9fb7f5b46a9648dd20e621fd, type: 3}
+    idle: {fileID: -2735293274216970117, guid: 78d5e4cb9fb7f5b46a9648dd20e621fd, type: 3}
+    move: {fileID: -7710415605997073860, guid: 78d5e4cb9fb7f5b46a9648dd20e621fd, type: 3}
+    attack: {fileID: -4592842328519117816, guid: 78d5e4cb9fb7f5b46a9648dd20e621fd, type: 3}
+    hit: {fileID: -3663672522963054737, guid: 78d5e4cb9fb7f5b46a9648dd20e621fd, type: 3}
+    death: {fileID: 4447012609936615250, guid: 78d5e4cb9fb7f5b46a9648dd20e621fd, type: 3}

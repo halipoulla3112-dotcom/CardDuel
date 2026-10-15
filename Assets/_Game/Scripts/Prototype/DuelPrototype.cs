@@ -28,6 +28,18 @@ namespace CardDuel.Prototype
         private const float DragHeight = 0.6f;
         private const float DragFollowSpeed = 25f;
         private const float LongPressTime = 0.45f;
+        private const float SummonFocusHeight = 0.45f;
+        private const float SummonCameraDistance = 1.35f;
+        private const float SummonCameraLift = 0.3f;
+        private const float SummonCameraTravel = 0.7f;
+        private const float SummonHoldTime = 1.8f;
+        private const float AttackStandOff = 0.7f;
+        private const float AttackRunTime = 0.8f;
+        private const float AttackCameraBack = 1.6f;
+        private const float AttackCameraSide = 1.05f;
+        private const float AttackCameraHeight = 1.15f;
+        private const float AttackCameraFollow = 6f;
+        private const float DirectAttackDepth = 2.25f;
         private const float InspectDistance = 2.2f;
         private const float InspectScreenFill = 0.85f;
 
@@ -61,6 +73,7 @@ namespace CardDuel.Prototype
         [SerializeField] private float enemyActionDelay = 0.9f;
 
         private Camera cam;
+        private AudioSource audioSource;
         private Board board;
         private Transform handRoot;
 
@@ -97,16 +110,26 @@ namespace CardDuel.Prototype
         private string message = "";
         private float messageUntil;
 
+        private bool inCinematic;
+        private Vector3 savedCameraPosition;
+        private Quaternion savedCameraRotation;
+        private string summonTitle = "";
+        private float summonTitleAlpha;
+
         private GUIStyle labelStyle;
         private GUIStyle centeredStyle;
         private GUIStyle bigStyle;
         private GUIStyle buttonStyle;
         private GUIStyle closeStyle;
+        private GUIStyle titleStyle;
         private GUIStyle panelStyle;
 
         private void Start()
         {
             SetupCamera();
+            audioSource = gameObject.AddComponent<AudioSource>();
+            audioSource.playOnAwake = false;
+            audioSource.spatialBlend = 0f;
             board = Board.Build(transform);
 
             handRoot = new GameObject("Hand").transform;
@@ -143,6 +166,7 @@ namespace CardDuel.Prototype
             cam.transform.LookAt(cameraLookAt);
             cam.fieldOfView = cameraFieldOfView;
             cam.nearClipPlane = 0.1f;
+            if (FindAnyObjectByType<AudioListener>() == null) cam.gameObject.AddComponent<AudioListener>();
         }
 
         // --------------------------------------------------------------- Inicio
@@ -183,10 +207,12 @@ namespace CardDuel.Prototype
             CoinFace(coin, "RIVAL", -1f);
 
             float spins = 6f + (playerFirst ? 0f : 0.5f);
+            audioSource.PlayOneShot(SoundFx.CoinFlip);
             yield return DOTween.Sequence()
                 .Append(coin.DOLocalMoveY(3f, 0.7f).SetEase(Ease.OutQuad))
                 .Append(coin.DOLocalMoveY(0.1f, 0.7f).SetEase(Ease.InQuad))
                 .Insert(0f, coin.DOLocalRotate(new Vector3(360f * spins, 0f, 0f), 1.4f, RotateMode.FastBeyond360).SetEase(Ease.OutSine))
+                .InsertCallback(1.4f, () => audioSource.PlayOneShot(SoundFx.CoinLand))
                 .Append(coin.DOPunchScale(Vector3.one * 0.15f, 0.3f))
                 .WaitForCompletion();
 
@@ -336,7 +362,7 @@ namespace CardDuel.Prototype
             Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
             foreach (var hit in hits)
             {
-                if (card == null) card = hit.collider.GetComponent<CardView>();
+                if (card == null) card = hit.collider.GetComponentInParent<CardView>();
                 if (zone == null) zone = hit.collider.GetComponent<BoardZone>();
             }
         }
@@ -731,7 +757,8 @@ namespace CardDuel.Prototype
             if (hovered == card) hovered = null;
 
             bool faceUp = mode == PlayMode.SummonAttack || mode == PlayMode.ActivateSpell;
-            var move = PlaceOnField(card, zone, faceUp, mode == PlayMode.SetMonster);
+            bool cinematic = mode == PlayMode.SummonAttack;
+            var move = PlaceOnField(card, zone, faceUp, mode == PlayMode.SetMonster, spawnFigure: !cinematic);
 
             string cardName = card.Data.displayName;
             switch (mode)
@@ -739,6 +766,7 @@ namespace CardDuel.Prototype
                 case PlayMode.SummonAttack:
                     normalSummonUsed = true;
                     ShowMessage($"¡Invocas a {cardName} en posición de ataque!");
+                    StartCoroutine(SummonCinematic(card, move));
                     break;
                 case PlayMode.SetMonster:
                     normalSummonUsed = true;
@@ -755,7 +783,7 @@ namespace CardDuel.Prototype
         }
 
         /// <summary>Mueve una carta de la mano de su dueño a una zona del campo.</summary>
-        private Tween PlaceOnField(CardView card, BoardZone zone, bool faceUp, bool defense)
+        private Tween PlaceOnField(CardView card, BoardZone zone, bool faceUp, bool defense, bool spawnFigure = true)
         {
             int owner = card.Owner;
             hands[owner].Remove(card);
@@ -773,12 +801,86 @@ namespace CardDuel.Prototype
 
             if (owner == Player) LayoutHand();
             else LayoutEnemyHand();
-            return card.MoveTo(board.CardPosition(zone), Board.CardRotation(owner, faceUp, defense), 0.45f);
+            var move = card.MoveTo(board.CardPosition(zone), Board.CardRotation(owner, faceUp, defense), 0.45f);
+            if (spawnFigure && card.Data.cardType == CardType.Monster && faceUp) move.OnComplete(() => SpawnFigure(card));
+            return move;
+        }
+
+        /// <summary>
+        /// Escena de invocación: la cámara vuela hasta delante del monstruo, este aparece
+        /// con su nombre en grande debajo y, al terminar, la cámara vuelve a su sitio.
+        /// </summary>
+        private IEnumerator SummonCinematic(CardView card, Tween move)
+        {
+            // En el turno del rival sigue en Busy al terminar; en el tuyo vuelve a Idle.
+            var stateAfter = state == State.Busy ? State.Busy : State.Idle;
+            state = State.Busy;
+            BeginCloseUp();
+
+            var fly = FlyCameraToFront(card);
+            if (move != null && move.IsActive()) yield return move.WaitForCompletion();
+            yield return fly.WaitForCompletion();
+
+            SpawnFigure(card);
+            audioSource.PlayOneShot(SoundFx.Summon);
+            summonTitle = card.Data.displayName;
+            yield return DOTween.To(() => summonTitleAlpha, a => summonTitleAlpha = a, 1f, 0.3f).WaitForCompletion();
+            yield return new WaitForSeconds(SummonHoldTime);
+            yield return DOTween.To(() => summonTitleAlpha, a => summonTitleAlpha = a, 0f, 0.3f).WaitForCompletion();
+
+            yield return EndCloseUp();
+            if (!gameOver) state = stateAfter;
+        }
+
+        /// <summary>Guarda la vista normal y oculta la mano y el HUD para un primer plano.</summary>
+        private void BeginCloseUp()
+        {
+            inCinematic = true;
+            handRoot.gameObject.SetActive(false);
+            savedCameraPosition = cam.transform.position;
+            savedCameraRotation = cam.transform.rotation;
+        }
+
+        /// <summary>La cámara vuelve a la vista normal y reaparecen la mano y el HUD.</summary>
+        private IEnumerator EndCloseUp()
+        {
+            yield return FlyCamera(savedCameraPosition, savedCameraRotation).WaitForCompletion();
+            handRoot.gameObject.SetActive(true);
+            inCinematic = false;
+        }
+
+        /// <summary>Lleva la cámara delante del monstruo de esa carta, mirándolo de frente.</summary>
+        private Sequence FlyCameraToFront(CardView card)
+        {
+            // Los monstruos del jugador miran hacia el rival (+Z del tablero), y al revés.
+            var up = board.transform.up;
+            var forward = board.transform.forward * (card.Owner == Player ? 1f : -1f);
+            var focus = board.transform.TransformPoint(board.CardPosition(card.Zone)) + up * SummonFocusHeight;
+            var shotPosition = focus + forward * SummonCameraDistance + up * SummonCameraLift;
+            return FlyCamera(shotPosition, Quaternion.LookRotation(focus - shotPosition, up));
+        }
+
+        private Sequence FlyCamera(Vector3 position, Quaternion rotation)
+        {
+            var cameraTransform = cam.transform;
+            cameraTransform.DOKill();
+            return DOTween.Sequence()
+                .SetTarget(cameraTransform)
+                .Join(cameraTransform.DOMove(position, SummonCameraTravel).SetEase(Ease.InOutCubic))
+                .Join(cameraTransform.DORotateQuaternion(rotation, SummonCameraTravel).SetEase(Ease.InOutCubic));
+        }
+
+        /// <summary>El modelo 3D del monstruo aparece de pie sobre su carta (si tiene uno asignado).</summary>
+        private static void SpawnFigure(CardView card)
+        {
+            if (card == null || card.Figure != null || card.Location != CardLocation.Field || !card.FaceUp) return;
+            card.Figure = MonsterFigure.Spawn(card);
         }
 
         private void ChangePosition(CardView card)
         {
-            if (!card.FaceUp)
+            bool flipSummon = !card.FaceUp;
+            if (flipSummon)
             {
                 card.FaceUp = true;
                 card.DefensePosition = false;
@@ -791,8 +893,9 @@ namespace CardDuel.Prototype
             }
 
             card.PositionChangedTurn = turn;
-            card.MoveTo(board.CardPosition(card.Zone), Board.CardRotation(card.Owner, card.FaceUp, card.DefensePosition), 0.35f);
+            var move = card.MoveTo(board.CardPosition(card.Zone), Board.CardRotation(card.Owner, card.FaceUp, card.DefensePosition), 0.35f);
             Deselect();
+            if (flipSummon) StartCoroutine(SummonCinematic(card, move));
         }
 
         private void ActivateSet(CardView card)
@@ -822,6 +925,12 @@ namespace CardDuel.Prototype
             {
                 card.Zone.Card = null;
                 card.Zone = null;
+            }
+
+            if (card.Figure != null)
+            {
+                card.Figure.Vanish();
+                card.Figure = null;
             }
 
             int owner = card.Owner;
@@ -880,17 +989,95 @@ namespace CardDuel.Prototype
         {
             attacker.AttackedTurn = turn;
             int defenderOwner = 1 - attacker.Owner;
-            int damage = attacker.Data.attack;
 
+            if (attacker.Figure != null) yield return FigureAttack(attacker, defender);
+            else yield return CardAttack(attacker, defender);
+
+            if (lifePoints[defenderOwner] <= 0)
+                GameOver(attacker.Owner, defenderOwner == Player ? "Tus LP llegan a 0." : "Los LP del rival llegan a 0.");
+        }
+
+        /// <summary>Punto del tablero que recibe el golpe: el monstruo atacado o, en un ataque directo, el campo rival.</summary>
+        private Vector3 ImpactPoint(CardView defender, int defenderOwner) => defender != null
+            ? board.CardPosition(defender.Zone)
+            : new Vector3(0f, 0.3f, defenderOwner == Player ? -DirectAttackDepth : DirectAttackDepth);
+
+        /// <summary>
+        /// El monstruo 3D deja su carta, corre hasta delante del enemigo seguido por la cámara,
+        /// golpea con su animación (el daño entra en el momento del golpe) y vuelve a su carta.
+        /// </summary>
+        private IEnumerator FigureAttack(CardView attacker, CardView defender)
+        {
+            var figure = attacker.Figure;
+            int defenderOwner = 1 - attacker.Owner;
+            var impact = ImpactPoint(defender, defenderOwner);
+
+            var start = figure.transform.position;
+            var target = board.transform.TransformPoint(new Vector3(impact.x, 0f, impact.z));
+            var direction = target - start;
+            direction.y = 0f;
+            direction.Normalize();
+            var standPoint = target - direction * AttackStandOff;
+
+            // La cámara se coloca detrás del atacante, mirando hacia su objetivo.
+            BeginCloseUp();
+            yield return FlyCamera(AttackShotPosition(start, target), AttackShotRotation(start, target)).WaitForCompletion();
+
+            figure.Detach(board.transform);
+            var run = figure.MoveTo(standPoint, AttackRunTime);
+            while (run.IsActive() && !run.IsComplete())
+            {
+                FollowAttack(figure.transform.position, target);
+                yield return null;
+            }
+
+            var (impactTime, length) = figure.PlayAttackTimed();
+            yield return FollowFor(impactTime, figure, target);
+            ApplyHit(attacker, defender, impact);
+            yield return FollowFor(Mathf.Max(length - impactTime, 0.3f), figure, target);
+
+            if (defender != null && defender.Life <= 0) yield return DestroyMonster(defender);
+
+            // Vuelve a su carta mientras la cámara regresa a la vista normal.
+            var back = figure.ReturnTo(attacker, AttackRunTime);
+            yield return EndCloseUp();
+            if (back.IsActive()) yield return back.WaitForCompletion();
+        }
+
+        /// <summary>Ataque sin modelo 3D: la carta se lanza hacia el objetivo y vuelve.</summary>
+        private IEnumerator CardAttack(CardView attacker, CardView defender)
+        {
+            int defenderOwner = 1 - attacker.Owner;
             var home = board.CardPosition(attacker.Zone);
-            var impact = defender != null
-                ? board.CardPosition(defender.Zone)
-                : new Vector3(0f, 0.3f, defenderOwner == Player ? -3.6f : 3.6f);
+            var impact = ImpactPoint(defender, defenderOwner);
 
             var attackerTransform = attacker.transform;
             attackerTransform.DOKill();
             yield return attackerTransform.DOLocalMove(Vector3.Lerp(home, impact, 0.8f) + Vector3.up * 0.4f, 0.25f)
                 .SetEase(Ease.InQuad).WaitForCompletion();
+            ApplyHit(attacker, defender, impact);
+            yield return attackerTransform.DOLocalMove(home, 0.3f).SetEase(Ease.OutCubic).WaitForCompletion();
+
+            if (defender == null || defender.Life > 0) yield break;
+            yield return new WaitForSeconds(0.2f);
+
+            // La cámara se acerca para ver morir de frente al monstruo destruido.
+            bool closeUp = defender.Figure != null;
+            if (closeUp)
+            {
+                BeginCloseUp();
+                yield return FlyCameraToFront(defender).WaitForCompletion();
+            }
+            yield return DestroyMonster(defender);
+            if (closeUp) yield return EndCloseUp();
+            yield return new WaitForSeconds(0.45f);
+        }
+
+        /// <summary>El golpe: resta vida al defensor (o LP en un ataque directo) y lo muestra.</summary>
+        private void ApplyHit(CardView attacker, CardView defender, Vector3 impact)
+        {
+            int defenderOwner = 1 - attacker.Owner;
+            int damage = attacker.Data.attack;
 
             if (defender == null)
             {
@@ -899,41 +1086,78 @@ namespace CardDuel.Prototype
                 ShowMessage(defenderOwner == Player
                     ? $"¡{attacker.Data.displayName} te ataca directamente! Pierdes {damage} LP."
                     : $"¡Ataque directo de {attacker.Data.displayName}! El rival pierde {damage} LP.");
+                return;
+            }
+
+            // Un monstruo boca abajo se revela al ser atacado; si no, acusa el golpe.
+            if (!defender.FaceUp)
+            {
+                defender.FaceUp = true;
+                defender.MoveTo(board.CardPosition(defender.Zone),
+                    Board.CardRotation(defenderOwner, true, defender.DefensePosition), 0.2f)
+                    .OnComplete(() => SpawnFigure(defender));
             }
             else
             {
-                // Un monstruo boca abajo se revela al ser atacado; si no, tiembla con el golpe.
-                if (!defender.FaceUp)
-                {
-                    defender.FaceUp = true;
-                    defender.MoveTo(board.CardPosition(defender.Zone),
-                        Board.CardRotation(defenderOwner, true, defender.DefensePosition), 0.2f);
-                }
-                else
-                {
-                    defender.transform.DOPunchPosition(Vector3.right * 0.1f, 0.3f, 12);
-                }
-
-                defender.SetLife(defender.Life - damage);
-                Popup(impact, $"-{damage}");
-
-                string names = $"{attacker.Data.displayName} ataca a {defender.Data.displayName}";
-                ShowMessage(defender.Life <= 0
-                    ? $"¡{names} y lo destruye!"
-                    : $"{names}: le quedan {defender.Life} de vida.");
+                defender.transform.DOPunchPosition(Vector3.right * 0.1f, 0.3f, 12);
+                if (defender.Figure != null) defender.Figure.PlayHit();
             }
 
-            yield return attackerTransform.DOLocalMove(home, 0.3f).SetEase(Ease.OutCubic).WaitForCompletion();
+            defender.SetLife(defender.Life - damage);
+            Popup(impact, $"-{damage}");
 
-            if (defender != null && defender.Life <= 0)
+            string names = $"{attacker.Data.displayName} ataca a {defender.Data.displayName}";
+            ShowMessage(defender.Life <= 0
+                ? $"¡{names} y lo destruye!"
+                : $"{names}: le quedan {defender.Life} de vida.");
+        }
+
+        /// <summary>El monstruo muere (animación y sonido) y su carta va al cementerio.</summary>
+        private IEnumerator DestroyMonster(CardView defender)
+        {
+            audioSource.PlayOneShot(SoundFx.Death);
+            if (defender.Figure != null)
             {
-                yield return new WaitForSeconds(0.2f);
-                SendToGraveyard(defender);
-                yield return new WaitForSeconds(0.45f);
+                float dying = defender.Figure.Die();
+                defender.Figure = null;
+                yield return new WaitForSeconds(dying);
             }
+            SendToGraveyard(defender);
+            yield return new WaitForSeconds(0.3f);
+        }
 
-            if (lifePoints[defenderOwner] <= 0)
-                GameOver(attacker.Owner, defenderOwner == Player ? "Tus LP llegan a 0." : "Los LP del rival llegan a 0.");
+        /// <summary>Plano por encima del hombro del atacante, con el objetivo en el centro.</summary>
+        private static Vector3 AttackShotPosition(Vector3 attacker, Vector3 target)
+        {
+            var direction = target - attacker;
+            direction.y = 0f;
+            direction.Normalize();
+            var side = Vector3.Cross(Vector3.up, direction);
+            return attacker - direction * AttackCameraBack + side * AttackCameraSide + Vector3.up * AttackCameraHeight;
+        }
+
+        private static Quaternion AttackShotRotation(Vector3 attacker, Vector3 target)
+        {
+            var look = Vector3.Lerp(attacker, target, 0.5f) + Vector3.up * SummonFocusHeight;
+            return Quaternion.LookRotation(look - AttackShotPosition(attacker, target), Vector3.up);
+        }
+
+        /// <summary>La cámara sigue al atacante suavemente mientras se mueve.</summary>
+        private void FollowAttack(Vector3 attacker, Vector3 target)
+        {
+            float t = 1f - Mathf.Exp(-AttackCameraFollow * Time.deltaTime);
+            var cameraTransform = cam.transform;
+            cameraTransform.position = Vector3.Lerp(cameraTransform.position, AttackShotPosition(attacker, target), t);
+            cameraTransform.rotation = Quaternion.Slerp(cameraTransform.rotation, AttackShotRotation(attacker, target), t);
+        }
+
+        private IEnumerator FollowFor(float seconds, MonsterFigure figure, Vector3 target)
+        {
+            for (float elapsed = 0f; elapsed < seconds; elapsed += Time.deltaTime)
+            {
+                if (figure != null) FollowAttack(figure.transform.position, target);
+                yield return null;
+            }
         }
 
         /// <summary>Número flotante que sube y desaparece sobre el tablero.</summary>
@@ -972,11 +1196,12 @@ namespace CardDuel.Prototype
                 // Los monstruos mucho más resistentes que fuertes se quedan defendiendo.
                 bool setDefense = summon.Data.defense >= summon.Data.attack + 500;
                 var zone = Array.Find(board.MonsterZones[Opponent], z => z.IsFree);
-                PlaceOnField(summon, zone, !setDefense, setDefense);
+                var move = PlaceOnField(summon, zone, !setDefense, setDefense, spawnFigure: false);
                 normalSummonUsed = true;
                 ShowMessage(setDefense
                     ? "El rival coloca un monstruo boca abajo en defensa."
                     : $"El rival invoca a {summon.Data.displayName} en posición de ataque.");
+                if (!setDefense) yield return SummonCinematic(summon, move);
                 yield return new WaitForSeconds(enemyActionDelay);
             }
 
@@ -1175,6 +1400,20 @@ namespace CardDuel.Prototype
                 return;
             }
 
+            // Escena de invocación: sin HUD, solo el nombre del monstruo abajo, con sombra.
+            if (inCinematic)
+            {
+                if (summonTitleAlpha <= 0f) return;
+                var titleRect = new Rect(0f, 720f - 190f, width, 120f);
+                var previous = GUI.color;
+                GUI.color = new Color(0f, 0f, 0f, 0.75f * summonTitleAlpha);
+                GUI.Label(new Rect(titleRect.x + 4f, titleRect.y + 4f, titleRect.width, titleRect.height), summonTitle, titleStyle);
+                GUI.color = new Color(1f, 1f, 1f, summonTitleAlpha);
+                GUI.Label(titleRect, summonTitle, titleStyle);
+                GUI.color = previous;
+                return;
+            }
+
             // Estado del duelo
             string whose = currentPlayer < 0 ? "Lanzando moneda..."
                 : currentPlayer == Player ? "<color=#80d0ff>Tu turno</color>"
@@ -1258,6 +1497,8 @@ namespace CardDuel.Prototype
             bigStyle = new GUIStyle(centeredStyle) { fontSize = 30, fontStyle = FontStyle.Bold };
             buttonStyle = new GUIStyle(GUI.skin.button) { fontSize = 20 };
             closeStyle = new GUIStyle(GUI.skin.button) { fontSize = 36, fontStyle = FontStyle.Bold };
+            titleStyle = new GUIStyle(GUI.skin.label) { fontSize = 72, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+            titleStyle.normal.textColor = Color.white;
 
             var background = new Texture2D(1, 1);
             background.SetPixel(0, 0, new Color(0f, 0f, 0f, 0.7f));

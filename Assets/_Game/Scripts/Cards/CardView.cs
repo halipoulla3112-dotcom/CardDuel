@@ -29,6 +29,9 @@ namespace CardDuel.Cards
         public int Owner { get; set; }
         public int AttackedTurn { get; set; } = -1;
 
+        /// <summary>Modelo 3D del monstruo de pie sobre la carta, si está invocado boca arriba.</summary>
+        public MonsterFigure Figure { get; set; }
+
         /// <summary>Vida actual en el campo. Empieza igual a la DEF y baja con cada ataque recibido.</summary>
         public int Life { get; private set; }
 
