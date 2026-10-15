@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -12,36 +13,17 @@ namespace CardDuel.Prototype
     {
         private static Mesh cubeMesh;
         private static Mesh quadMesh;
-        private static Font font;
-        private static Material textMaterial;
+        private static TMP_FontAsset serifFont;
+        private static bool serifFontTried;
+        private static Texture2D circleTexture;
+        private const float TextDilate = 0.25f;
+        private static readonly string[] SerifFamilies = { "Georgia", "Cambria", "Times New Roman", "Noto Serif", "Droid Serif" };
+        private static readonly Dictionary<TMP_FontAsset, Material> ThickMaterials = new Dictionary<TMP_FontAsset, Material>();
+        private static readonly Dictionary<Texture, Material> TexturedCache = new Dictionary<Texture, Material>();
         private static readonly Dictionary<Color, Material> LitCache = new Dictionary<Color, Material>();
 
         public static Mesh CubeMesh => cubeMesh != null ? cubeMesh : cubeMesh = GrabMesh(PrimitiveType.Cube);
         public static Mesh QuadMesh => quadMesh != null ? quadMesh : quadMesh = GrabMesh(PrimitiveType.Quad);
-
-        public static Font Font => font != null ? font : font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-
-        /// <summary>Material de texto 3D que respeta la profundidad (el de TextMesh se ve a través de todo).</summary>
-        public static Material TextMaterial
-        {
-            get
-            {
-                if (textMaterial != null) return textMaterial;
-                var shader = Shader.Find("CardDuel/Text3D");
-                textMaterial = new Material(shader != null ? shader : Font.material.shader)
-                {
-                    mainTexture = Font.material.mainTexture
-                };
-                Font.textureRebuilt -= OnFontTextureRebuilt;
-                Font.textureRebuilt += OnFontTextureRebuilt;
-                return textMaterial;
-            }
-        }
-
-        private static void OnFontTextureRebuilt(Font rebuilt)
-        {
-            if (rebuilt == font && textMaterial != null) textMaterial.mainTexture = rebuilt.material.mainTexture;
-        }
 
         /// <summary>Material URP Lit compartido por color.</summary>
         public static Material Lit(Color color)
@@ -90,25 +72,121 @@ namespace CardDuel.Prototype
             return go.transform;
         }
 
-        /// <summary>Texto en el plano XY del padre, escalado para caber en <paramref name="maxSize"/>.</summary>
-        public static TextMesh Text(string name, Transform parent, string text, Vector2 position, Vector2 maxSize, float lift, Color color)
+        /// <summary>
+        /// Texto TextMeshPro (SDF, nítido a cualquier tamaño) en el plano XY del padre, mirando hacia -Z.
+        /// Se ajusta solo para caber en <paramref name="maxSize"/>; con <paramref name="wrap"/> parte las líneas.
+        /// </summary>
+        public static TextMeshPro Text(string name, Transform parent, string text, Vector2 position, Vector2 maxSize, float lift, Color color, bool wrap = false)
         {
-            var go = new GameObject(name);
+            var go = new GameObject(name, typeof(RectTransform));
             go.transform.SetParent(parent, false);
-            go.transform.localPosition = new Vector3(position.x, position.y, -lift);
-            var textMesh = go.AddComponent<TextMesh>();
-            textMesh.font = Font;
-            textMesh.fontSize = 64;
-            textMesh.characterSize = 0.1f;
-            textMesh.anchor = TextAnchor.MiddleCenter;
-            textMesh.alignment = TextAlignment.Center;
+            var textMesh = go.AddComponent<TextMeshPro>();
+            textMesh.rectTransform.sizeDelta = maxSize;
+            textMesh.rectTransform.localPosition = new Vector3(position.x, position.y, -lift);
+            textMesh.alignment = TextAlignmentOptions.Center;
+            textMesh.fontSharedMaterial = ThickTextMaterial(textMesh);
+            textMesh.textWrappingMode = wrap ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
+            textMesh.overflowMode = TextOverflowModes.Overflow;
+            textMesh.enableAutoSizing = true;
+            textMesh.fontSizeMin = 0.01f;
+            textMesh.fontSizeMax = 100f;
             textMesh.color = color;
             textMesh.text = text;
-            var renderer = go.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = TextMaterial;
-            renderer.shadowCastingMode = ShadowCastingMode.Off;
-            go.AddComponent<FitText>().maxSize = maxSize;
+            go.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
             return textMesh;
+        }
+
+        /// <summary>
+        /// Copia del material de la fuente con el trazo engrosado: las letras se ven más
+        /// negras y legibles sin cambiar su tamaño (la negrita las ensancha y el autoajuste las encoge).
+        /// </summary>
+        private static Material ThickTextMaterial(TMP_Text text)
+        {
+            if (ThickMaterials.TryGetValue(text.font, out var cached) && cached != null) return cached;
+            var material = new Material(text.font.material) { name = $"{text.font.name} Thick" };
+            material.SetFloat(ShaderUtilities.ID_FaceDilate, TextDilate);
+            ThickMaterials[text.font] = material;
+            return material;
+        }
+
+        /// <summary>Cambia la fuente de un texto conservando el trazo engrosado.</summary>
+        public static void SetFont(TMP_Text text, TMP_FontAsset font)
+        {
+            if (font == null) return;
+            text.font = font;
+            text.fontSharedMaterial = ThickTextMaterial(text);
+        }
+
+        /// <summary>
+        /// Fuente serif del sistema (Georgia en Windows, Noto Serif en Android...) para los
+        /// textos de las cartas. Si no hay ninguna, devuelve null y se usa la de por defecto.
+        /// </summary>
+        public static TMP_FontAsset SerifFont
+        {
+            get
+            {
+                if (serifFont != null || serifFontTried) return serifFont;
+                serifFontTried = true;
+                foreach (var family in SerifFamilies)
+                {
+                    serifFont = TMP_FontAsset.CreateFontAsset(family, "Regular");
+                    if (serifFont == null) continue;
+                    serifFont.name = family;
+                    if (TMP_Settings.defaultFontAsset != null)
+                        serifFont.fallbackFontAssetTable = new List<TMP_FontAsset> { TMP_Settings.defaultFontAsset };
+                    break;
+                }
+                return serifFont;
+            }
+        }
+
+        /// <summary>Material URP Lit con textura (marco, ilustración), poco brillante.</summary>
+        public static Material Textured(Texture texture)
+        {
+            if (TexturedCache.TryGetValue(texture, out var cached) && cached != null) return cached;
+            var material = NewLit(Color.white);
+            material.SetTexture("_BaseMap", texture);
+            material.mainTexture = texture;
+            material.SetFloat("_Smoothness", 0.1f);
+            TexturedCache[texture] = material;
+            return material;
+        }
+
+        /// <summary>Material sin iluminación y con transparencia (estrellas, orbe del atributo).</summary>
+        public static Material Transparent(Texture texture, Color color)
+        {
+            var material = new Material(Shader.Find("Sprites/Default")) { mainTexture = texture, color = color };
+            return material;
+        }
+
+        /// <summary>Quad con un material propio en el plano XY del padre, mirando hacia -Z.</summary>
+        public static Transform Quad(string name, Transform parent, Vector2 position, Vector2 size, float lift, Material material)
+        {
+            var quad = Quad(name, parent, position, size, lift, Color.white);
+            quad.GetComponent<MeshRenderer>().sharedMaterial = material;
+            return quad;
+        }
+
+        /// <summary>Círculo blanco de borde suave, para teñirlo con el color de cada atributo.</summary>
+        public static Texture2D CircleTexture
+        {
+            get
+            {
+                if (circleTexture != null) return circleTexture;
+                const int size = 128;
+                circleTexture = new Texture2D(size, size, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp };
+                float r = size * 0.5f;
+                for (int y = 0; y < size; y++)
+                    for (int x = 0; x < size; x++)
+                    {
+                        float d = new Vector2(x + 0.5f - r, y + 0.5f - r).magnitude / r;
+                        float alpha = Mathf.Clamp01((1f - d) * 24f);
+                        float shade = Mathf.Lerp(1f, 0.55f, d * d);
+                        circleTexture.SetPixel(x, y, new Color(shade, shade, shade, alpha));
+                    }
+                circleTexture.Apply();
+                return circleTexture;
+            }
         }
 
         private static Mesh GrabMesh(PrimitiveType type)

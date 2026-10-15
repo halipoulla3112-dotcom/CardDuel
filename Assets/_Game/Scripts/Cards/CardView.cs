@@ -1,5 +1,6 @@
 using CardDuel.Prototype;
 using DG.Tweening;
+using TMPro;
 using UnityEngine;
 
 namespace CardDuel.Cards
@@ -32,7 +33,7 @@ namespace CardDuel.Cards
         public int Life { get; private set; }
 
         private static readonly Color DamagedColor = new Color(0.8f, 0.1f, 0.1f);
-        private TextMesh statsText;
+        private TMP_Text statsText;
         private Color statsColor;
 
         private Vector3 homePosition;
@@ -51,14 +52,12 @@ namespace CardDuel.Cards
             {
                 var stats = transform.Find("Face/Stats");
                 if (stats == null) return;
-                statsText = stats.GetComponent<TextMesh>();
+                statsText = stats.GetComponent<TMP_Text>();
                 statsColor = statsText.color;
             }
 
-            statsText.text = $"ATK {data.attack}   DEF {Life}";
+            statsText.text = $"ATK / {data.attack}    DEF / {Life}";
             statsText.color = Life < data.defense ? DamagedColor : statsColor;
-            var fit = statsText.GetComponent<FitText>();
-            if (fit != null) fit.enabled = true;
         }
 
         /// <summary>Fija la posición de reposo (p. ej. su hueco en la mano) y anima hasta ella.</summary>
