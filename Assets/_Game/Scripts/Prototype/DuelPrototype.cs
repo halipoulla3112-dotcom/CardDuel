@@ -111,6 +111,10 @@ namespace CardDuel.Prototype
         private float messageUntil;
 
         private bool inCinematic;
+        private Texture2D portrait;
+        private float portraitAlpha;
+        private const float PortraitSize = 230f;
+        private const float PortraitFadeSpeed = 4f;
         private Vector3 savedCameraPosition;
         private Quaternion savedCameraRotation;
         private string summonTitle = "";
@@ -131,6 +135,7 @@ namespace CardDuel.Prototype
             audioSource.playOnAwake = false;
             audioSource.spatialBlend = 0f;
             board = Board.Build(transform);
+            CastleEnvironment.Build(transform, board.transform);
 
             handRoot = new GameObject("Hand").transform;
             handRoot.SetParent(cam.transform, false);
@@ -277,6 +282,10 @@ namespace CardDuel.Prototype
 
         private void Update()
         {
+            // El retrato del jugador se desvanece en las escenas de cámara y al ver una carta en grande.
+            bool showPortrait = !inCinematic && state != State.Inspecting && currentPlayer >= 0;
+            portraitAlpha = Mathf.MoveTowards(portraitAlpha, showPortrait ? 1f : 0f, Time.deltaTime * PortraitFadeSpeed);
+
             if (state == State.Busy) return;
 
             if (state == State.Inspecting)
@@ -1400,6 +1409,8 @@ namespace CardDuel.Prototype
                 return;
             }
 
+            DrawPortrait(width);
+
             // Escena de invocación: sin HUD, solo el nombre del monstruo abajo, con sombra.
             if (inCinematic)
             {
@@ -1460,6 +1471,21 @@ namespace CardDuel.Prototype
                 if (Button(new Rect(x, y, 330, 50), label, enabled)) run();
                 y += 58;
             }
+        }
+
+        /// <summary>Tu retrato en un círculo morado, abajo a la derecha, con un leve vaivén.</summary>
+        private void DrawPortrait(float width)
+        {
+            if (portraitAlpha <= 0f) return;
+            if (portrait == null) portrait = Resources.Load<Texture2D>("UI/PlayerPortrait");
+            if (portrait == null) return;
+
+            float bob = Mathf.Sin(Time.time * 1.6f) * 3f;
+            var rect = new Rect(width - PortraitSize - 16f, 720f - PortraitSize - 12f + bob, PortraitSize, PortraitSize);
+            var previous = GUI.color;
+            GUI.color = new Color(1f, 1f, 1f, portraitAlpha);
+            GUI.DrawTexture(rect, portrait, ScaleMode.ScaleToFit, true);
+            GUI.color = previous;
         }
 
         private void Panel(Rect rect)
