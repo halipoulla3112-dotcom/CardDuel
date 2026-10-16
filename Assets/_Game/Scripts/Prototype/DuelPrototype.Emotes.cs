@@ -104,19 +104,7 @@ namespace CardDuel.Prototype
         {
             if (emoteStyle != null) return;
 
-            emoteStyle = new GUIStyle(GUI.skin.button)
-            {
-                fontSize = 19,
-                fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleCenter,
-                border = new RectOffset(14, 14, 14, 14),
-            };
-            emoteStyle.normal.background = RoundedTexture(new Color(0.32f, 0.12f, 0.5f, 0.95f), new Color(0.95f, 0.75f, 0.35f));
-            emoteStyle.hover.background = RoundedTexture(new Color(0.48f, 0.2f, 0.7f, 0.98f), new Color(1f, 0.85f, 0.45f));
-            emoteStyle.active.background = RoundedTexture(new Color(0.6f, 0.3f, 0.85f, 1f), new Color(1f, 0.9f, 0.55f));
-            emoteStyle.normal.textColor = new Color(1f, 0.93f, 0.75f);
-            emoteStyle.hover.textColor = Color.white;
-            emoteStyle.active.textColor = Color.white;
+            emoteStyle = UiKit.PurpleButton(19);
 
             bubbleStyle = new GUIStyle(GUI.skin.box)
             {
@@ -127,31 +115,8 @@ namespace CardDuel.Prototype
                 padding = new RectOffset(16, 16, 10, 10),
                 border = new RectOffset(14, 14, 14, 14),
             };
-            bubbleStyle.normal.background = RoundedTexture(new Color(1f, 0.97f, 0.9f), new Color(0.45f, 0.28f, 0.12f));
+            bubbleStyle.normal.background = UiKit.RoundedTexture(new Color(1f, 0.97f, 0.9f), new Color(0.45f, 0.28f, 0.12f));
             bubbleStyle.normal.textColor = new Color(0.25f, 0.14f, 0.06f);
-        }
-
-        /// <summary>Textura con esquinas redondeadas y borde, para usar como fondo de 9 partes.</summary>
-        private static Texture2D RoundedTexture(Color fill, Color border)
-        {
-            const int size = 48, radius = 13, borderWidth = 3;
-            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
-            for (int y = 0; y < size; y++)
-                for (int x = 0; x < size; x++)
-                {
-                    // Distancia al borde del rectángulo redondeado (negativa dentro).
-                    float dx = Mathf.Max(radius - x - 0.5f, x + 0.5f - (size - radius), 0f);
-                    float dy = Mathf.Max(radius - y - 0.5f, y + 0.5f - (size - radius), 0f);
-                    float outside = Mathf.Sqrt(dx * dx + dy * dy) - radius;
-                    float edge = Mathf.Min(Mathf.Min(x, y), Mathf.Min(size - 1 - x, size - 1 - y));
-                    float inner = outside > -borderWidth || (dx == 0f && dy == 0f && edge < borderWidth) ? 1f : 0f;
-
-                    var color = Color.Lerp(fill, border, inner);
-                    color.a *= Mathf.Clamp01(0.5f - outside);
-                    texture.SetPixel(x, y, color);
-                }
-            texture.Apply();
-            return texture;
         }
     }
 }

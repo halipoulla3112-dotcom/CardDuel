@@ -31,13 +31,15 @@ namespace CardDuel.EditorTools
             ("Dragón de Obsidiana", "Flying/Dragon_Evolved"),
         };
 
+        private static readonly string[] DefaultCritters = { "Blob/Chicken", "Blob/Chicken", "Blob/Cat", "Blob/Pigeon", "Big/Bunny" };
+
         static MonsterModelLibraryBuilder()
         {
             EditorApplication.delayCall += () =>
             {
-                // También se regenera si el asset es de antes de existir la animación de movimiento.
+                // También se regenera si el asset es de antes de existir el movimiento o los animales.
                 var library = AssetDatabase.LoadAssetAtPath<MonsterModelLibrary>(AssetPath);
-                if (library == null || library.entries.TrueForAll(e => e.move == null)) Build();
+                if (library == null || library.entries.TrueForAll(e => e.move == null) || library.critters.Count == 0) Build();
             };
         }
 
@@ -81,9 +83,31 @@ namespace CardDuel.EditorTools
             }
 
             library.entries = entries;
+            library.critters = BuildCritters();
             EditorUtility.SetDirty(library);
             AssetDatabase.SaveAssets();
             Debug.Log($"[CardDuel] Modelos 3D asignados a {library.entries.Count} monstruos ({AssetPath}).");
+        }
+
+        /// <summary>Animales de la granja que pasean alrededor de la mesa.</summary>
+        private static System.Collections.Generic.List<MonsterModelLibrary.Critter> BuildCritters()
+        {
+            var critters = new System.Collections.Generic.List<MonsterModelLibrary.Critter>();
+            foreach (var model in DefaultCritters)
+            {
+                string path = $"{ModelsRoot}{model}.fbx";
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (prefab == null) continue;
+                var clips = AssetDatabase.LoadAllAssetsAtPath(path).OfType<AnimationClip>()
+                    .Where(c => !c.name.StartsWith("__preview")).ToArray();
+                critters.Add(new MonsterModelLibrary.Critter
+                {
+                    model = prefab,
+                    idle = FindClip(clips, "Idle"),
+                    walk = FindClip(clips, "Walk", "Run"),
+                });
+            }
+            return critters;
         }
 
         /// <summary>La primera animación cuyo nombre (sin el prefijo del esqueleto) empieza por alguna de las palabras.</summary>

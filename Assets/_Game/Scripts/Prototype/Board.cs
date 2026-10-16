@@ -19,10 +19,12 @@ namespace CardDuel.Prototype
         private const float SideColumnX = 4.1f;
         private static readonly float[] Columns = { -2.6f, -1.3f, 0f, 1.3f, 2.6f };
 
-        private static readonly Color MonsterZoneColor = new Color(0.85f, 0.55f, 0.25f);
-        private static readonly Color SpellTrapZoneColor = new Color(0.2f, 0.68f, 0.64f);
-        private static readonly Color SideZoneColor = new Color(0.48f, 0.5f, 0.62f);
-        private static readonly Color BorderColor = new Color(0.75f, 0.62f, 0.30f);
+        // Colores de las zonas de cristal (algo por encima de 1 para que el borde brille).
+        private static readonly Color MonsterZoneColor = new Color(1.25f, 0.95f, 0.5f);
+        private static readonly Color SpellTrapZoneColor = new Color(0.55f, 1.15f, 1.2f);
+        private static readonly Color SideZoneColor = new Color(1f, 0.85f, 1.25f);
+        private static readonly Color GoldTrim = new Color(0.95f, 0.75f, 0.35f);
+        private static readonly Color MidlineGlow = new Color(2.2f, 1.7f, 0.8f);
         private static readonly Color LabelColor = new Color(0.85f, 0.75f, 0.45f);
 
         public BoardZone[][] MonsterZones { get; } = new BoardZone[2][];
@@ -99,7 +101,73 @@ namespace CardDuel.Prototype
                 EnvironmentTextures.Material(EnvironmentTextures.Grass, new Vector2(5f, 1.6f), Color.white));
             Primitives.Box("OpponentHalf", transform, new Vector3(0f, 0f, 1.65f), new Vector3(10.3f, 0.01f, 3.2f),
                 EnvironmentTextures.Material(EnvironmentTextures.RedBricks, new Vector2(5f, 3.2f), Color.white));
-            Primitives.Box("MidLine", transform, new Vector3(0f, 0.006f, 0f), new Vector3(10.3f, 0.004f, 0.05f), Primitives.Lit(BorderColor));
+
+            BuildFrame();
+        }
+
+        /// <summary>Marco de madera oscura con moldura dorada, adornos en las esquinas y línea central luminosa.</summary>
+        private void BuildFrame()
+        {
+            const float halfX = 5.2f, halfZ = 3.27f, rail = 0.16f, height = 0.07f;
+            var wood = EnvironmentTextures.Material(EnvironmentTextures.Wood, new Vector2(6f, 0.3f), new Color(0.55f, 0.4f, 0.32f));
+            var gold = Primitives.NewLit(GoldTrim);
+            gold.SetFloat("_Metallic", 0.85f);
+            gold.SetFloat("_Smoothness", 0.7f);
+
+            foreach (float z in new[] { -halfZ, halfZ })
+            {
+                Primitives.Box("FrameRail", transform, new Vector3(0f, height * 0.5f, z), new Vector3(halfX * 2f + rail, height, rail), wood);
+                Primitives.Box("FrameGold", transform, new Vector3(0f, height + 0.006f, z), new Vector3(halfX * 2f + rail, 0.012f, 0.05f), gold);
+            }
+            foreach (float x in new[] { -halfX, halfX })
+            {
+                Primitives.Box("FrameRail", transform, new Vector3(x, height * 0.5f, 0f), new Vector3(rail, height, halfZ * 2f + rail), wood);
+                Primitives.Box("FrameGold", transform, new Vector3(x, height + 0.006f, 0f), new Vector3(0.05f, 0.012f, halfZ * 2f + rail), gold);
+            }
+            foreach (var corner in new[] { new Vector2(-halfX, -halfZ), new Vector2(halfX, -halfZ), new Vector2(-halfX, halfZ), new Vector2(halfX, halfZ) })
+                Primitives.Box("FrameCorner", transform, new Vector3(corner.x, height + 0.03f, corner.y), new Vector3(0.24f, 0.08f, 0.24f), gold)
+                    .localRotation = Quaternion.Euler(0f, 45f, 0f);
+
+            // Línea dorada que brilla entre los dos campos, con un rombo en el centro.
+            var glow = Primitives.UnlitColor(MidlineGlow);
+            Primitives.Box("MidLine", transform, new Vector3(0f, 0.01f, 0f), new Vector3(halfX * 2f, 0.006f, 0.045f), glow);
+            Primitives.Box("MidEmblem", transform, new Vector3(0f, 0.016f, 0f), new Vector3(0.36f, 0.012f, 0.36f), glow)
+                .localRotation = Quaternion.Euler(0f, 45f, 0f);
+            Primitives.Box("MidEmblemCore", transform, new Vector3(0f, 0.02f, 0f), new Vector3(0.2f, 0.012f, 0.2f), gold)
+                .localRotation = Quaternion.Euler(0f, 45f, 0f);
+        }
+
+        private static Texture2D zoneTexture;
+
+        /// <summary>Rectángulo redondeado: relleno tenue, brillo interior junto al borde y borde nítido.</summary>
+        private static Texture2D ZoneTexture
+        {
+            get
+            {
+                if (zoneTexture != null) return zoneTexture;
+                const int size = 128;
+                const float radius = 18f, border = 4f, glow = 16f;
+                zoneTexture = new Texture2D(size, size, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp, anisoLevel = 4 };
+                for (int y = 0; y < size; y++)
+                    for (int x = 0; x < size; x++)
+                    {
+                        // Distancia con signo al borde del rectángulo redondeado (negativa dentro).
+                        float qx = Mathf.Abs(x + 0.5f - size * 0.5f) - (size * 0.5f - radius);
+                        float qy = Mathf.Abs(y + 0.5f - size * 0.5f) - (size * 0.5f - radius);
+                        float outside = new Vector2(Mathf.Max(qx, 0f), Mathf.Max(qy, 0f)).magnitude + Mathf.Min(Mathf.Max(qx, qy), 0f) - radius;
+
+                        float inside = -outside;
+                        float alpha = 0.22f;
+                        if (inside < glow) alpha = Mathf.Lerp(0.75f, 0.22f, inside / glow);
+                        if (inside < border) alpha = 1f;
+                        alpha *= Mathf.Clamp01(0.5f - outside);
+
+                        float white = inside < border ? 1f : 0.85f;
+                        zoneTexture.SetPixel(x, y, new Color(white, white, white, alpha));
+                    }
+                zoneTexture.Apply(true);
+                return zoneTexture;
+            }
         }
 
         private void BuildSide(int owner)
@@ -123,13 +191,14 @@ namespace CardDuel.Prototype
             SetDeckCount(owner, 0);
         }
 
+        /// <summary>
+        /// Zona de cristal: panel translúcido con esquinas redondeadas y borde luminoso,
+        /// que deja ver el césped o el ladrillo de debajo.
+        /// </summary>
         private BoardZone CreateZone(ZoneType type, int owner, int index, Vector2 position, string label)
         {
-            Primitives.Box("Border", transform, new Vector3(position.x, 0.008f, position.y),
-                new Vector3(ZoneSize + 0.08f, 0.008f, ZoneSize + 0.08f), Primitives.Lit(BorderColor));
-
             var color = type == ZoneType.Monster ? MonsterZoneColor : type == ZoneType.SpellTrap ? SpellTrapZoneColor : SideZoneColor;
-            var material = Primitives.NewLit(color);
+            var material = Primitives.UnlitTransparent(ZoneTexture, color);
             var tile = Primitives.Box($"{type}Zone_{owner}_{index}", transform, new Vector3(position.x, 0.012f, position.y),
                 new Vector3(ZoneSize, 0.012f, ZoneSize), material, collider: true);
 

@@ -1,3 +1,4 @@
+using DG.Tweening;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -12,6 +13,8 @@ namespace CardDuel.Prototype
     public static class AestheticFx
     {
         private static DepthOfField depthOfField;
+        private static ColorAdjustments colorAdjustments;
+        private static Vignette vignetteFx;
 
         public static void Setup(Camera cam, Transform parent)
         {
@@ -49,7 +52,7 @@ namespace CardDuel.Prototype
             bloom.tint.Override(new Color(1f, 0.96f, 0.88f));
 
             // Pleno día y colores vivos.
-            var color = profile.Add<ColorAdjustments>(true);
+            var color = colorAdjustments = profile.Add<ColorAdjustments>(true);
             color.postExposure.Override(0.2f);
             color.contrast.Override(10f);
             color.saturation.Override(18f);
@@ -60,7 +63,7 @@ namespace CardDuel.Prototype
             tones.midtones.Override(new Vector4(1f, 1f, 1f, 0.04f));
             tones.highlights.Override(new Vector4(1.04f, 1.02f, 0.97f, 0f));
 
-            var vignette = profile.Add<Vignette>(true);
+            var vignette = vignetteFx = profile.Add<Vignette>(true);
             vignette.intensity.Override(0.12f);
             vignette.smoothness.Override(0.5f);
             vignette.color.Override(new Color(0.15f, 0.12f, 0.08f));
@@ -151,6 +154,89 @@ namespace CardDuel.Prototype
             renderer.shadowCastingMode = ShadowCastingMode.Off;
             renderer.receiveShadows = false;
             return system;
+        }
+
+        /// <summary>Derrota: la imagen pierde el color, se oscurece un poco y aparece una viñeta roja.</summary>
+        public static void DefeatMood(float duration)
+        {
+            if (colorAdjustments == null || vignetteFx == null) return;
+            float saturation = colorAdjustments.saturation.value;
+            float exposure = colorAdjustments.postExposure.value;
+            float vignette = vignetteFx.intensity.value;
+            vignetteFx.color.Override(new Color(0.45f, 0.02f, 0.02f));
+            DOTween.To(() => 0f, t =>
+            {
+                colorAdjustments.saturation.Override(Mathf.Lerp(saturation, -70f, t));
+                colorAdjustments.postExposure.Override(Mathf.Lerp(exposure, -0.25f, t));
+                vignetteFx.intensity.Override(Mathf.Lerp(vignette, 0.5f, t));
+            }, 1f, duration).SetEase(Ease.OutCubic);
+        }
+
+        /// <summary>Victoria: lluvia de confeti de colores delante de la cámara.</summary>
+        public static void Confetti(Camera cam)
+        {
+            var go = new GameObject("Confetti");
+            go.transform.SetParent(cam.transform, false);
+            go.transform.localPosition = new Vector3(0f, 2.2f, 4f);
+            go.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            var system = go.AddComponent<ParticleSystem>();
+            system.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
+            var main = system.main;
+            main.duration = 3f;
+            main.loop = false;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(2.5f, 4f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0.5f, 2.5f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.11f);
+            main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
+            main.gravityModifier = 0.25f;
+            main.maxParticles = 600;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            var gradient = new Gradient();
+            gradient.SetKeys(
+                new[]
+                {
+                    new GradientColorKey(new Color(1f, 0.85f, 0.2f), 0f), new GradientColorKey(new Color(1f, 0.3f, 0.4f), 0.25f),
+                    new GradientColorKey(new Color(0.3f, 0.7f, 1f), 0.5f), new GradientColorKey(new Color(0.5f, 1f, 0.4f), 0.75f),
+                    new GradientColorKey(new Color(0.85f, 0.5f, 1f), 1f),
+                },
+                new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 1f) });
+            main.startColor = new ParticleSystem.MinMaxGradient(gradient) { mode = ParticleSystemGradientMode.RandomColor };
+
+            var emission = system.emission;
+            emission.rateOverTime = 70f;
+            emission.SetBursts(new[] { new ParticleSystem.Burst(0f, 160) });
+
+            var shape = system.shape;
+            shape.shapeType = ParticleSystemShapeType.Box;
+            shape.scale = new Vector3(6f, 1f, 0.1f);
+
+            var rotation = system.rotationOverLifetime;
+            rotation.enabled = true;
+            rotation.z = new ParticleSystem.MinMaxCurve(-4f, 4f);
+
+            var noise = system.noise;
+            noise.enabled = true;
+            noise.strength = 0.6f;
+            noise.frequency = 0.6f;
+
+            var renderer = go.GetComponent<ParticleSystemRenderer>();
+            renderer.sharedMaterial = ConfettiMaterial();
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            system.Play();
+        }
+
+        private static Material confetti;
+
+        /// <summary>Partículas opacas de color (cuadraditos de papel).</summary>
+        private static Material ConfettiMaterial()
+        {
+            if (confetti != null) return confetti;
+            var shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+            confetti = new Material(shader != null ? shader : Shader.Find("Sprites/Default"));
+            confetti.SetTexture("_BaseMap", Texture2D.whiteTexture);
+            confetti.mainTexture = Texture2D.whiteTexture;
+            return confetti;
         }
 
         private static Material additive;

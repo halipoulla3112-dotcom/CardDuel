@@ -30,6 +30,18 @@ namespace CardDuel.Cards
 
         public List<Entry> entries = new List<Entry>();
 
+        /// <summary>Animal de ambiente que pasea por la granja (no es una carta).</summary>
+        [Serializable]
+        public class Critter
+        {
+            public GameObject model;
+            public AnimationClip idle;
+            public AnimationClip walk;
+        }
+
+        [Tooltip("Animales que pasean alrededor de la mesa para dar ambiente.")]
+        public List<Critter> critters = new List<Critter>();
+
         private static MonsterModelLibrary instance;
 
         public static MonsterModelLibrary Instance =>

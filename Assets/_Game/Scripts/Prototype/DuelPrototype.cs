@@ -134,8 +134,10 @@ namespace CardDuel.Prototype
             audioSource = gameObject.AddComponent<AudioSource>();
             audioSource.playOnAwake = false;
             audioSource.spatialBlend = 0f;
+            GameSettings.Apply();
             board = Board.Build(transform);
             FarmEnvironment.Build(transform);
+            BoardDecor.Build(transform);
             AestheticFx.Setup(cam, transform);
 
             handRoot = new GameObject("Hand").transform;
@@ -276,7 +278,7 @@ namespace CardDuel.Prototype
             gameOver = true;
             ClearSelection();
             state = State.Busy;
-            ShowMessage($"{reason} {(winner == Player ? "¡Has ganado!" : "Has perdido.")}", float.PositiveInfinity);
+            ShowEndScreen(winner == Player, reason);
         }
 
         // ---------------------------------------------------------------- Input
@@ -284,8 +286,23 @@ namespace CardDuel.Prototype
         private void Update()
         {
             // El retrato del jugador se desvanece en las escenas de cámara y al ver una carta en grande.
-            bool showPortrait = !inCinematic && state != State.Inspecting && currentPlayer >= 0;
+            bool showPortrait = !inCinematic && state != State.Inspecting && currentPlayer >= 0 && !gameOver;
             portraitAlpha = Mathf.MoveTowards(portraitAlpha, showPortrait ? 1f : 0f, Time.deltaTime * PortraitFadeSpeed);
+            audioSource.volume = GameSettings.EffectsVolume;
+
+            // Esc pausa (salvo al ver una carta en grande, que la cierra, o con la partida terminada).
+            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame && state != State.Inspecting && !gameOver)
+                TogglePause();
+            if (paused) return;
+
+#if UNITY_EDITOR
+            // Atajos de prueba en el editor: F9 gana la partida y F10 la pierde.
+            if (Keyboard.current != null && !gameOver)
+            {
+                if (Keyboard.current.f9Key.wasPressedThisFrame) GameOver(Player, "(Prueba desde el editor)");
+                else if (Keyboard.current.f10Key.wasPressedThisFrame) GameOver(Opponent, "(Prueba desde el editor)");
+            }
+#endif
 
             if (state == State.Busy) return;
 
@@ -1285,11 +1302,7 @@ namespace CardDuel.Prototype
             messageUntil = Time.time + seconds;
         }
 
-        private void Restart()
-        {
-            DOTween.KillAll();
-            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
-        }
+        private void Restart() => PrototypeBootstrap.LoadDuel();
 
         // ------------------------------------------------------------------ HUD
 
@@ -1405,6 +1418,18 @@ namespace CardDuel.Prototype
             float width = Screen.width / scale;
             if (Event.current.type == EventType.Layout) guiRects.Clear();
 
+            // Fin de partida y pausa ocupan toda la pantalla.
+            if (gameOver)
+            {
+                DrawEndScreen(width);
+                return;
+            }
+            if (paused)
+            {
+                DrawPause(width);
+                return;
+            }
+
             // Viendo una carta en grande: solo el botón de cerrar.
             if (state == State.Inspecting)
             {
@@ -1447,6 +1472,8 @@ namespace CardDuel.Prototype
             bool canEndTurn = IsPlayerTurn && (state == State.Idle || state == State.CardSelected);
             if (Button(new Rect(12, 260, 300, 52), "Terminar turno", canEndTurn)) EndPlayerTurn();
             if (Button(new Rect(12, 320, 300, 52), "Reiniciar", true)) Restart();
+            if (Button(new Rect(12, 380, 300, 52), "Menú", true)) PrototypeBootstrap.LoadMenu();
+            if (Button(new Rect(320, 12, 56, 56), "II", true, PauseButtonStyle)) TogglePause();
 
             // Mensajes
             if (Time.time < messageUntil)

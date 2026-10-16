@@ -15,6 +15,7 @@ namespace CardDuel.Prototype
         private static Mesh quadMesh;
         private static TMP_FontAsset serifFont;
         private static bool serifFontTried;
+        private static bool serifFontFound;
         private static Texture2D circleTexture;
         private const float TextDilate = 0.25f;
         private static readonly string[] SerifFamilies = { "Georgia", "Cambria", "Times New Roman", "Noto Serif", "Droid Serif" };
@@ -125,12 +126,15 @@ namespace CardDuel.Prototype
         {
             get
             {
-                if (serifFont != null || serifFontTried) return serifFont;
+                // Si se creó pero Unity la liberó al recargar la escena, se vuelve a crear.
+                if (serifFont != null) return serifFont;
+                if (serifFontTried && !serifFontFound) return null;
                 serifFontTried = true;
                 foreach (var family in SerifFamilies)
                 {
                     serifFont = TMP_FontAsset.CreateFontAsset(family, "Regular");
                     if (serifFont == null) continue;
+                    serifFontFound = true;
                     serifFont.name = family;
                     if (TMP_Settings.defaultFontAsset != null)
                         serifFont.fallbackFontAssetTable = new List<TMP_FontAsset> { TMP_Settings.defaultFontAsset };
@@ -149,6 +153,32 @@ namespace CardDuel.Prototype
             material.mainTexture = texture;
             material.SetFloat("_Smoothness", 0.1f);
             TexturedCache[texture] = material;
+            return material;
+        }
+
+        /// <summary>Material URP Unlit translúcido (mezcla alfa); admite color HDR para que brille con el bloom.</summary>
+        public static Material UnlitTransparent(Texture texture, Color color)
+        {
+            var material = UnlitColor(color);
+            material.SetTexture("_BaseMap", texture);
+            material.mainTexture = texture;
+            material.SetFloat("_Surface", 1f);
+            material.SetFloat("_Blend", 0f);
+            material.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+            material.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+            material.SetFloat("_ZWrite", 0f);
+            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            material.renderQueue = (int)RenderQueue.Transparent;
+            return material;
+        }
+
+        /// <summary>Material URP Unlit opaco de un color (HDR > 1 para que brille).</summary>
+        public static Material UnlitColor(Color color)
+        {
+            var shader = Shader.Find("Universal Render Pipeline/Unlit");
+            var material = new Material(shader != null ? shader : Shader.Find("Unlit/Color"));
+            material.SetColor("_BaseColor", color);
+            material.color = color;
             return material;
         }
 

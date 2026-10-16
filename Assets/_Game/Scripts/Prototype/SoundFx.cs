@@ -18,6 +18,29 @@ namespace CardDuel.Prototype
         private static AudioClip summon;
         private static AudioClip death;
         private static AudioClip emote;
+        private static AudioClip victory;
+        private static AudioClip defeat;
+
+        /// <summary>Fanfarria de victoria: arpegio mayor ascendente y acorde brillante final.</summary>
+        public static AudioClip Victory => victory != null ? victory : victory = Build("Victory", 3.2f, (data, rng) =>
+        {
+            float[] notes = { 523.25f, 659.25f, 783.99f, 1046.5f };
+            for (int i = 0; i < notes.Length; i++)
+                AddChord(data, i * 0.16f, 0.7f, new[] { notes[i], notes[i] * 2f }, 0.5f);
+            AddChord(data, 0.7f, 2.4f, new[] { 523.25f, 659.25f, 783.99f, 1046.5f, 1318.5f }, 0.7f);
+            AddTing(data, 0.7f, 1.6f, 0.4f);
+            AddWhoosh(data, rng, 0.6f, 0.8f, 800f, 6000f, 0.12f);
+        });
+
+        /// <summary>Derrota: notas menores que bajan y un golpe grave.</summary>
+        public static AudioClip Defeat => defeat != null ? defeat : defeat = Build("Defeat", 3.4f, (data, rng) =>
+        {
+            float[] notes = { 440f, 349.23f, 293.66f, 220f };
+            for (int i = 0; i < notes.Length; i++)
+                AddFallingTone(data, i * 0.38f, 0.75f, notes[i], notes[i] * 0.94f, 0.45f);
+            AddChord(data, 1.5f, 1.9f, new[] { 110f, 130.81f, 164.81f }, 0.5f);
+            AddBoom(data, rng, 1.5f, 0.7f);
+        });
 
         /// <summary>"Plin" corto de dos notas ascendentes al decir una frase.</summary>
         public static AudioClip Emote => emote != null ? emote : emote = Build("Emote", 0.5f, (data, rng) =>
