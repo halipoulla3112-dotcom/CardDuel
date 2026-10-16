@@ -19,9 +19,9 @@ namespace CardDuel.Prototype
         private const float SideColumnX = 4.1f;
         private static readonly float[] Columns = { -2.6f, -1.3f, 0f, 1.3f, 2.6f };
 
-        private static readonly Color MonsterZoneColor = new Color(0.32f, 0.22f, 0.12f);
-        private static readonly Color SpellTrapZoneColor = new Color(0.10f, 0.26f, 0.24f);
-        private static readonly Color SideZoneColor = new Color(0.18f, 0.18f, 0.22f);
+        private static readonly Color MonsterZoneColor = new Color(0.58f, 0.36f, 0.16f);
+        private static readonly Color SpellTrapZoneColor = new Color(0.14f, 0.48f, 0.45f);
+        private static readonly Color SideZoneColor = new Color(0.3f, 0.3f, 0.38f);
         private static readonly Color BorderColor = new Color(0.75f, 0.62f, 0.30f);
         private static readonly Color LabelColor = new Color(0.85f, 0.75f, 0.45f);
 
@@ -91,9 +91,14 @@ namespace CardDuel.Prototype
 
         private void BuildTable()
         {
-            Primitives.Box("Table", transform, new Vector3(0f, -0.1f, 0f), new Vector3(10.6f, 0.2f, 6.8f), Primitives.Lit(new Color(0.08f, 0.09f, 0.12f)));
-            Primitives.Box("PlayerHalf", transform, new Vector3(0f, 0f, -1.65f), new Vector3(10.3f, 0.01f, 3.2f), Primitives.Lit(new Color(0.11f, 0.20f, 0.32f)));
-            Primitives.Box("OpponentHalf", transform, new Vector3(0f, 0f, 1.65f), new Vector3(10.3f, 0.01f, 3.2f), Primitives.Lit(new Color(0.30f, 0.11f, 0.13f)));
+            Primitives.Box("Table", transform, new Vector3(0f, -0.1f, 0f), new Vector3(10.6f, 0.2f, 6.8f),
+                EnvironmentTextures.Material(EnvironmentTextures.Wood, new Vector2(5f, 2f), new Color(0.85f, 0.75f, 0.65f)));
+
+            // Tu mitad es un prado de césped; la del rival, un patio de ladrillo.
+            Primitives.Box("PlayerHalf", transform, new Vector3(0f, 0f, -1.65f), new Vector3(10.3f, 0.01f, 3.2f),
+                EnvironmentTextures.Material(EnvironmentTextures.Grass, new Vector2(5f, 1.6f), Color.white));
+            Primitives.Box("OpponentHalf", transform, new Vector3(0f, 0f, 1.65f), new Vector3(10.3f, 0.01f, 3.2f),
+                EnvironmentTextures.Material(EnvironmentTextures.RedBricks, new Vector2(5f, 3.2f), Color.white));
             Primitives.Box("MidLine", transform, new Vector3(0f, 0.006f, 0f), new Vector3(10.3f, 0.004f, 0.05f), Primitives.Lit(BorderColor));
         }
 

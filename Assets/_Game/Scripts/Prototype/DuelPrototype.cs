@@ -135,7 +135,8 @@ namespace CardDuel.Prototype
             audioSource.playOnAwake = false;
             audioSource.spatialBlend = 0f;
             board = Board.Build(transform);
-            CastleEnvironment.Build(transform, board.transform);
+            FarmEnvironment.Build(transform);
+            AestheticFx.Setup(cam, transform);
 
             handRoot = new GameObject("Hand").transform;
             handRoot.SetParent(cam.transform, false);
@@ -846,6 +847,7 @@ namespace CardDuel.Prototype
         {
             inCinematic = true;
             handRoot.gameObject.SetActive(false);
+            AestheticFx.SetCloseUpFocus(true);
             savedCameraPosition = cam.transform.position;
             savedCameraRotation = cam.transform.rotation;
         }
@@ -854,6 +856,7 @@ namespace CardDuel.Prototype
         private IEnumerator EndCloseUp()
         {
             yield return FlyCamera(savedCameraPosition, savedCameraRotation).WaitForCompletion();
+            AestheticFx.SetCloseUpFocus(false);
             handRoot.gameObject.SetActive(true);
             inCinematic = false;
         }
