@@ -226,6 +226,112 @@ namespace CardDuel.Prototype
             system.Play();
         }
 
+        /// <summary>
+        /// Estallido al aparecer un monstruo, según su atributo: brasas que suben (fuego),
+        /// gotas que salpican (agua), destellos (luz), humo (oscuridad), piedrecitas
+        /// (tierra) o un remolino de hojas (viento).
+        /// </summary>
+        public static void SummonBurst(Vector3 position, Cards.CardAttribute attribute)
+        {
+            var go = new GameObject($"SummonBurst_{attribute}");
+            go.transform.position = position + Vector3.up * 0.05f;
+            var system = go.AddComponent<ParticleSystem>();
+            system.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
+            var main = system.main;
+            main.loop = false;
+            main.duration = 0.6f;
+            main.maxParticles = 300;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.stopAction = ParticleSystemStopAction.Destroy;
+
+            var emission = system.emission;
+            emission.rateOverTime = 0f;
+            var shape = system.shape;
+            shape.shapeType = ParticleSystemShapeType.Cone;
+            shape.rotation = new Vector3(-90f, 0f, 0f);
+            shape.angle = 45f;
+            shape.radius = 0.6f;
+
+            var fade = system.colorOverLifetime;
+            fade.enabled = true;
+            var gradient = new Gradient();
+            gradient.SetKeys(
+                new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 0.6f), new GradientAlphaKey(0f, 1f) });
+            fade.color = gradient;
+
+            var renderer = go.GetComponent<ParticleSystemRenderer>();
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.sharedMaterial = AdditiveMaterial();
+
+            switch (attribute)
+            {
+                case Cards.CardAttribute.Fire:
+                    Configure(system, 80, new Color(1f, 0.4f, 0.08f), new Color(1f, 0.72f, 0.18f), 1f, 3f, 0.05f, 0.12f, 0.7f, 1.3f, -0.5f);
+                    break;
+                case Cards.CardAttribute.Water:
+                    Configure(system, 90, new Color(0.2f, 0.55f, 1f), new Color(0.5f, 0.85f, 1f), 2.5f, 4.5f, 0.04f, 0.09f, 0.7f, 1.1f, 1.4f);
+                    break;
+                case Cards.CardAttribute.Light:
+                    shape.shapeType = ParticleSystemShapeType.Sphere;
+                    Configure(system, 70, new Color(1f, 0.85f, 0.35f), new Color(1f, 0.97f, 0.7f), 0.6f, 2.2f, 0.04f, 0.1f, 0.9f, 1.6f, -0.15f);
+                    break;
+                case Cards.CardAttribute.Dark:
+                    renderer.sharedMaterial = AlphaMaterial();
+                    shape.shapeType = ParticleSystemShapeType.Sphere;
+                    Configure(system, 60, new Color(0.45f, 0.15f, 0.7f, 0.95f), new Color(0.2f, 0.06f, 0.35f, 0.95f), 0.2f, 0.6f, 0.13f, 0.25f, 1.2f, 2f, -0.1f);
+                    var grow = system.sizeOverLifetime;
+                    grow.enabled = true;
+                    grow.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 0.6f, 1f, 1.6f));
+                    break;
+                case Cards.CardAttribute.Earth:
+                    renderer.sharedMaterial = ConfettiMaterial();
+                    Configure(system, 55, new Color(0.45f, 0.32f, 0.2f), new Color(0.6f, 0.58f, 0.55f), 2f, 4f, 0.05f, 0.1f, 0.8f, 1.2f, 2f);
+                    break;
+                default:
+                    // Viento: remolino de hojas verdes que giran alrededor del monstruo.
+                    shape.shapeType = ParticleSystemShapeType.Circle;
+                    shape.radius = 0.7f;
+                    Configure(system, 60, new Color(0.3f, 0.9f, 0.35f), new Color(0.7f, 1f, 0.5f), 0.2f, 0.6f, 0.05f, 0.1f, 1.1f, 1.6f, -0.35f);
+                    var velocity = system.velocityOverLifetime;
+                    velocity.enabled = true;
+                    velocity.orbitalY = new ParticleSystem.MinMaxCurve(5f);
+                    velocity.radial = new ParticleSystem.MinMaxCurve(0.2f);
+                    break;
+            }
+
+            system.Play();
+        }
+
+        private static void Configure(ParticleSystem system, int count, Color colorA, Color colorB, float minSpeed, float maxSpeed,
+            float minSize, float maxSize, float minLife, float maxLife, float gravity)
+        {
+            var main = system.main;
+            main.startColor = new ParticleSystem.MinMaxGradient(colorA, colorB);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(minSpeed, maxSpeed);
+            main.startSize = new ParticleSystem.MinMaxCurve(minSize * BurstSizeScale, maxSize * BurstSizeScale);
+            main.startLifetime = new ParticleSystem.MinMaxCurve(minLife, maxLife);
+            main.gravityModifier = gravity;
+            system.emission.SetBursts(new[] { new ParticleSystem.Burst(0f, (short)count) });
+
+            var noise = system.noise;
+            noise.enabled = true;
+            noise.strength = 0.4f;
+            noise.frequency = 0.8f;
+        }
+
+        private const float BurstSizeScale = 2.4f;
+        private static Material alphaParticles;
+
+        /// <summary>Partículas con mezcla alfa normal (humo oscuro, que con mezcla aditiva no se vería).</summary>
+        private static Material AlphaMaterial()
+        {
+            if (alphaParticles != null) return alphaParticles;
+            alphaParticles = new Material(Shader.Find("Sprites/Default")) { mainTexture = SoftDot() };
+            return alphaParticles;
+        }
+
         private static Material confetti;
 
         /// <summary>Partículas opacas de color (cuadraditos de papel).</summary>
@@ -263,18 +369,9 @@ namespace CardDuel.Prototype
         private static Material AdditiveMaterial()
         {
             if (additive != null) return additive;
-            var shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
-            additive = new Material(shader != null ? shader : Shader.Find("Sprites/Default"));
-            additive.SetTexture("_BaseMap", SoftDot());
-            additive.mainTexture = SoftDot();
-            // Transparente con mezcla aditiva: las partículas suman luz y brillan con el bloom.
-            additive.SetFloat("_Surface", 1f);
-            additive.SetFloat("_Blend", 2f);
-            additive.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
-            additive.SetFloat("_DstBlend", (float)BlendMode.One);
-            additive.SetFloat("_ZWrite", 0f);
-            additive.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            additive.renderQueue = (int)RenderQueue.Transparent;
+            // Sprites/Default dibuja las partículas transparentes de forma fiable en URP; el color
+            // por encima de 1 las hace brillar con el bloom (el de cada partícula se limita a 1).
+            additive = new Material(Shader.Find("Sprites/Default")) { mainTexture = SoftDot(), color = new Color(1.5f, 1.5f, 1.5f, 1f) };
             return additive;
         }
     }

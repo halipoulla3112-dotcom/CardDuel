@@ -197,6 +197,34 @@ namespace CardDuel.Prototype
             return quad;
         }
 
+        private static Texture2D glowFrameTexture;
+
+        /// <summary>
+        /// Halo para poner detrás de una carta: transparente donde está la carta y un
+        /// resplandor que se desvanece hacia fuera de sus bordes.
+        /// </summary>
+        public static Texture2D GlowFrameTexture
+        {
+            get
+            {
+                if (glowFrameTexture != null) return glowFrameTexture;
+                const int size = 128;
+                glowFrameTexture = new Texture2D(size, size, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp };
+                for (int y = 0; y < size; y++)
+                    for (int x = 0; x < size; x++)
+                    {
+                        float u = (x + 0.5f) / size, v = (y + 0.5f) / size;
+                        float dx = Mathf.Max(Mathf.Abs(u - 0.5f) - 0.4f, 0f) / 0.1f;
+                        float dy = Mathf.Max(Mathf.Abs(v - 0.5f) - 0.42f, 0f) / 0.08f;
+                        float d = Mathf.Clamp01(Mathf.Sqrt(dx * dx + dy * dy));
+                        float alpha = (1f - d) * (1f - d);
+                        glowFrameTexture.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+                    }
+                glowFrameTexture.Apply();
+                return glowFrameTexture;
+            }
+        }
+
         /// <summary>Círculo blanco de borde suave, para teñirlo con el color de cada atributo.</summary>
         public static Texture2D CircleTexture
         {

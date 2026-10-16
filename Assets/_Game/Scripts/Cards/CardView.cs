@@ -45,6 +45,36 @@ namespace CardDuel.Cards
 
         public void Init(CardData cardData) => data = cardData;
 
+        private MeshRenderer glow;
+        private Material glowMaterial;
+
+        /// <summary>Halo luminoso alrededor de la carta (carta jugable o monstruo listo para atacar); null lo apaga.</summary>
+        public void SetGlow(Color? color)
+        {
+            if (color == null)
+            {
+                if (glow != null) glow.enabled = false;
+                return;
+            }
+
+            if (glow == null)
+            {
+                var go = new GameObject("Glow");
+                go.transform.SetParent(transform, false);
+                go.transform.localPosition = new Vector3(0f, -0.002f, 0f);
+                go.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                go.transform.localScale = new Vector3(CardFactory.Width * 1.25f, CardFactory.Height * 1.18f, 1f);
+                go.AddComponent<MeshFilter>().sharedMesh = Primitives.QuadMesh;
+                glow = go.AddComponent<MeshRenderer>();
+                glow.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                glowMaterial = Primitives.UnlitTransparent(Primitives.GlowFrameTexture, color.Value);
+                glow.sharedMaterial = glowMaterial;
+            }
+
+            glow.enabled = true;
+            glowMaterial.SetColor("_BaseColor", color.Value);
+        }
+
         /// <summary>Fija la vida y actualiza la línea ATK/DEF de la cara (en rojo si está dañada).</summary>
         public void SetLife(int life)
         {

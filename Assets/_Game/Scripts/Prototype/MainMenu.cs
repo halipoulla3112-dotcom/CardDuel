@@ -71,6 +71,7 @@ namespace CardDuel.Prototype
             audioSource.playOnAwake = false;
             Time.timeScale = 1f;
             GameSettings.Apply();
+            MusicPlayer.Attach(gameObject);
 
             // Mismo escenario que el duelo, con la mesa vacía en el centro.
             Board.Build(transform);
@@ -379,11 +380,11 @@ namespace CardDuel.Prototype
         private void DrawSettings(float width)
         {
             ShadowLabel(new Rect(0f, 40f, width, 70f), "Ajustes", headerStyle);
-            var panel = new Rect(width * 0.5f - 230f, 150f, 460f, 330f);
+            var panel = new Rect(width * 0.5f - 230f, 130f, 460f, 380f);
             guiRects.Add(panel);
             GUI.Box(panel, GUIContent.none, UiKit.Panel);
-            UiKit.VolumeControls(new Rect(panel.x + 50f, panel.y + 60f, panel.width - 100f, 160f));
-            if (Button(new Rect(width * 0.5f - 140f, 520f, 280f, 60f), "← Volver")) screen = Screen.Home;
+            UiKit.VolumeControls(new Rect(panel.x + 50f, panel.y + 60f, panel.width - 100f, 240f));
+            if (Button(new Rect(width * 0.5f - 140f, 540f, 280f, 60f), "← Volver")) screen = Screen.Home;
         }
 
         private void DrawDecks(float width)
@@ -413,7 +414,7 @@ namespace CardDuel.Prototype
         {
             guiRects.Add(rect);
             bool clicked = GUI.Button(rect, label, style ?? buttonStyle);
-            if (clicked) audioSource.PlayOneShot(SoundFx.Emote, 0.4f);
+            if (clicked) audioSource.PlayOneShot(SoundFx.Click, 0.7f);
             return clicked;
         }
 

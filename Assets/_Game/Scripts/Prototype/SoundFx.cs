@@ -18,6 +18,44 @@ namespace CardDuel.Prototype
         private static AudioClip summon;
         private static AudioClip death;
         private static AudioClip emote;
+        private static AudioClip turnBanner;
+        private static AudioClip draw;
+        private static AudioClip click;
+        private static AudioClip endTurn;
+
+        /// <summary>"Fsss" de papel al robar una carta.</summary>
+        public static AudioClip Draw => draw != null ? draw : draw = Build("Draw", 0.35f, (data, rng) =>
+        {
+            AddWhoosh(data, rng, 0f, 0.28f, 5000f, 1500f, 0.5f);
+            AddThud(data, rng, 0.24f, 0.15f);
+        });
+
+        /// <summary>Clic suave de botón.</summary>
+        public static AudioClip Click => click != null ? click : click = Build("Click", 0.12f, (data, rng) =>
+        {
+            for (int i = 0; i < data.Length; i++)
+            {
+                float t = i / (float)SampleRate;
+                data[i] += Mathf.Sin(2f * Mathf.PI * 1250f * t) * Mathf.Exp(-t / 0.018f) * 0.6f;
+            }
+            AddThud(data, rng, 0f, 0.2f);
+        });
+
+        /// <summary>Al pasar turno: golpe suave y dos notas que bajan.</summary>
+        public static AudioClip EndTurn => endTurn != null ? endTurn : endTurn = Build("EndTurn", 0.9f, (data, rng) =>
+        {
+            AddBoom(data, rng, 0f, 0.35f);
+            AddChord(data, 0f, 0.5f, new[] { 783.99f, 1046.5f }, 0.35f);
+            AddChord(data, 0.15f, 0.7f, new[] { 523.25f, 659.25f }, 0.35f);
+        });
+
+        /// <summary>Barrido rápido y un acorde corto al cambiar de turno.</summary>
+        public static AudioClip TurnBanner => turnBanner != null ? turnBanner : turnBanner = Build("TurnBanner", 1f, (data, rng) =>
+        {
+            AddWhoosh(data, rng, 0f, 0.45f, 400f, 4000f, 0.25f);
+            AddChord(data, 0.12f, 0.8f, new[] { 659.25f, 987.77f, 1318.5f }, 0.45f);
+        });
+
         private static AudioClip victory;
         private static AudioClip defeat;
 

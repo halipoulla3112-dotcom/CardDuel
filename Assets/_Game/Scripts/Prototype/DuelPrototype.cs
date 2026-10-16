@@ -135,6 +135,7 @@ namespace CardDuel.Prototype
             audioSource.playOnAwake = false;
             audioSource.spatialBlend = 0f;
             GameSettings.Apply();
+            MusicPlayer.Attach(gameObject);
             board = Board.Build(transform);
             FarmEnvironment.Build(transform);
             BoardDecor.Build(transform);
@@ -249,6 +250,7 @@ namespace CardDuel.Prototype
             currentPlayer = owner;
             normalSummonUsed = false;
             RefillMana(owner);
+            ShowTurnBanner(owner);
 
             // Quien empieza el duelo no roba en su primer turno.
             if (turn > 1 && DrawCard(owner) == null) return;
@@ -270,6 +272,7 @@ namespace CardDuel.Prototype
         private void EndPlayerTurn()
         {
             Deselect();
+            audioSource.PlayOneShot(SoundFx.EndTurn, 0.8f);
             state = State.Busy;
             StartTurn(Opponent);
         }
@@ -287,10 +290,13 @@ namespace CardDuel.Prototype
 
         private void Update()
         {
+            RemoveShake();
             // El retrato del jugador se desvanece en las escenas de cámara y al ver una carta en grande.
             bool showPortrait = !inCinematic && state != State.Inspecting && currentPlayer >= 0 && !gameOver;
             portraitAlpha = Mathf.MoveTowards(portraitAlpha, showPortrait ? 1f : 0f, Time.deltaTime * PortraitFadeSpeed);
             audioSource.volume = GameSettings.EffectsVolume;
+            UpdateGlows();
+            UpdateLifeBars();
 
             // Esc pausa (salvo al ver una carta en grande, que la cierra, o con la partida terminada).
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame && state != State.Inspecting && !gameOver)
@@ -298,9 +304,16 @@ namespace CardDuel.Prototype
             if (paused) return;
 
 #if UNITY_EDITOR
-            // Atajos de prueba en el editor: F9 gana la partida y F10 la pierde.
+            // Atajos de prueba en el editor: F8 estallidos de invocación, F9 gana y F10 pierde.
             if (Keyboard.current != null && !gameOver)
             {
+                // F8: los seis estallidos de invocación en fila, para ver cómo quedan.
+                if (Keyboard.current.f8Key.wasPressedThisFrame)
+                {
+                    var attributes = new[] { CardAttribute.Fire, CardAttribute.Water, CardAttribute.Light, CardAttribute.Dark, CardAttribute.Earth, CardAttribute.Wind };
+                    for (int i = 0; i < attributes.Length; i++)
+                        AestheticFx.SummonBurst(board.transform.TransformPoint(new Vector3(-3.75f + i * 1.5f, 0f, 0f)), attributes[i]);
+                }
                 if (Keyboard.current.f9Key.wasPressedThisFrame) GameOver(Player, "(Prueba desde el editor)");
                 else if (Keyboard.current.f10Key.wasPressedThisFrame) GameOver(Opponent, "(Prueba desde el editor)");
             }
@@ -326,6 +339,28 @@ namespace CardDuel.Prototype
                 return;
             }
 
+            // Arrastrando un monstruo para atacar: la flecha sigue al puntero hasta soltar.
+            if (attackDragging)
+            {
+                if (!pointer.press.isPressed) EndAttackDrag(screenPosition);
+                return;
+            }
+
+            // Pulsado un monstruo listo: si se arrastra, empieza el ataque; si se suelta sin mover, es un toque.
+            if (attackPressed != null)
+            {
+                if (!pointer.press.isPressed)
+                {
+                    attackPressed = null;
+                    HandleTap(pressPosition);
+                }
+                else if ((screenPosition - pressPosition).sqrMagnitude > DragThreshold * DragThreshold)
+                {
+                    BeginAttackDrag(attackPressed);
+                }
+                return;
+            }
+
             if (pressedCard != null)
             {
                 if (!pointer.press.isPressed)
@@ -346,6 +381,7 @@ namespace CardDuel.Prototype
 
             bool overGui = IsOverGui(screenPosition);
             UpdateHover(pointer, screenPosition, overGui);
+            UpdateHandExpansion(pointer, screenPosition);
 
             if (!pointer.press.wasPressedThisFrame || overGui) return;
 
@@ -358,6 +394,11 @@ namespace CardDuel.Prototype
                 pressedCard = card;
                 pressPosition = screenPosition;
                 pressTime = Time.time;
+            }
+            else if (CanStartAttackDrag(card))
+            {
+                attackPressed = card;
+                pressPosition = screenPosition;
             }
             else
             {
@@ -411,8 +452,12 @@ namespace CardDuel.Prototype
                     return;
 
                 case State.ChoosingTarget:
-                    if (fieldCard != null && highlighted.Contains(fieldCard.Zone))
-                        StartCoroutine(PlayerAttack(selected, fieldCard));
+                    // Con ayuda para apuntar: vale tocar cerca del objetivo.
+                    var targetZone = ResolveAttackTarget(screenPosition, out bool direct);
+                    if (targetZone != null && targetZone.Card != null)
+                        StartCoroutine(PlayerAttack(selected, targetZone.Card));
+                    else if (direct)
+                        StartCoroutine(PlayerAttack(selected, null));
                     else
                         ShowMessage("Toca el monstruo rival al que quieres atacar.");
                     return;
@@ -619,6 +664,7 @@ namespace CardDuel.Prototype
             deck.RemoveAt(deck.Count - 1);
 
             var card = CardFactory.Create(data, board.transform);
+            audioSource.PlayOneShot(SoundFx.Draw, owner == Player ? 0.9f : 0.4f);
             card.Owner = owner;
             card.transform.localPosition = board.DeckTopPosition(owner);
             card.transform.localRotation = Board.CardRotation(owner, false, false);
@@ -630,6 +676,7 @@ namespace CardDuel.Prototype
             {
                 card.transform.SetParent(handRoot, true);
                 LayoutHand();
+                card.transform.DOPunchScale(Vector3.one * 0.15f, 0.45f, 6);
             }
             else
             {
@@ -642,11 +689,12 @@ namespace CardDuel.Prototype
         private void LayoutHand()
         {
             int count = Hand.Count;
-            float spacing = Mathf.Min(handCardSpacing, handMaxWidth / Mathf.Max(count, 1));
+            float expand = handExpanded ? HandExpandSpacing : 1f;
+            float spacing = Mathf.Min(handCardSpacing * expand, handMaxWidth * expand / Mathf.Max(count, 1));
             for (int i = 0; i < count; i++)
             {
                 float offset = i - (count - 1) * 0.5f;
-                var position = new Vector3(offset * spacing, -offset * offset * 0.02f, -i * 0.01f);
+                var position = new Vector3(offset * spacing, -offset * offset * 0.02f + (handExpanded ? HandExpandLift : 0f), -i * 0.01f);
                 var rotation = Quaternion.Euler(0f, 0f, -offset * 3f) * HandFacing;
                 Hand[i].SetHome(position, rotation, 0.4f);
             }
@@ -826,6 +874,7 @@ namespace CardDuel.Prototype
 
             card.transform.SetParent(board.transform, true);
             card.Location = CardLocation.Field;
+            card.SetGlow(null);
             card.Zone = zone;
             zone.Card = card;
             card.FaceUp = faceUp;
@@ -859,6 +908,8 @@ namespace CardDuel.Prototype
 
             SpawnFigure(card);
             audioSource.PlayOneShot(SoundFx.Summon);
+            AestheticFx.SummonBurst(board.transform.TransformPoint(board.CardPosition(card.Zone)), card.Data.attribute);
+            Shake(0.05f, 0.35f);
             summonTitle = card.Data.displayName;
             yield return DOTween.To(() => summonTitleAlpha, a => summonTitleAlpha = a, 1f, 0.3f).WaitForCompletion();
             yield return new WaitForSeconds(SummonHoldTime);
@@ -981,6 +1032,7 @@ namespace CardDuel.Prototype
             var pile = graveyards[owner];
             card.transform.SetParent(board.transform, true);
             card.Location = CardLocation.Graveyard;
+            card.SetGlow(null);
             card.FaceUp = true;
             card.DefensePosition = false;
             if (card.Data.cardType == CardType.Monster) card.SetLife(card.Data.defense);
@@ -1008,7 +1060,7 @@ namespace CardDuel.Prototype
             ClearHighlights();
             foreach (var target in targets) Highlight(target.Zone, AttackTarget);
             state = State.ChoosingTarget;
-            ShowMessage("Toca el monstruo rival al que quieres atacar.");
+            ShowMessage("Elige objetivo. Ojo: los monstruos en ataque contraatacan.");
         }
 
         private IEnumerator PlayerAttack(CardView attacker, CardView defender)
@@ -1076,6 +1128,14 @@ namespace CardDuel.Prototype
 
             if (defender != null && defender.Life <= 0) yield return DestroyMonster(defender);
 
+            // Si el contraataque lo ha matado, muere ahí mismo en vez de volver.
+            if (attacker.Life <= 0)
+            {
+                yield return DestroyMonster(attacker);
+                yield return EndCloseUp();
+                yield break;
+            }
+
             // Vuelve a su carta mientras la cámara regresa a la vista normal.
             var back = figure.ReturnTo(attacker, AttackRunTime);
             yield return EndCloseUp();
@@ -1096,22 +1156,30 @@ namespace CardDuel.Prototype
             ApplyHit(attacker, defender, impact);
             yield return attackerTransform.DOLocalMove(home, 0.3f).SetEase(Ease.OutCubic).WaitForCompletion();
 
-            if (defender == null || defender.Life > 0) yield break;
-            yield return new WaitForSeconds(0.2f);
+            if (defender != null && defender.Life <= 0) yield return DeathCloseUp(defender);
+            if (attacker.Life <= 0) yield return DeathCloseUp(attacker);
+        }
 
-            // La cámara se acerca para ver morir de frente al monstruo destruido.
-            bool closeUp = defender.Figure != null;
+        /// <summary>La cámara se acerca para ver morir de frente al monstruo destruido.</summary>
+        private IEnumerator DeathCloseUp(CardView monster)
+        {
+            yield return new WaitForSeconds(0.2f);
+            bool closeUp = monster.Figure != null;
             if (closeUp)
             {
                 BeginCloseUp();
-                yield return FlyCameraToFront(defender).WaitForCompletion();
+                yield return FlyCameraToFront(monster).WaitForCompletion();
             }
-            yield return DestroyMonster(defender);
+            yield return DestroyMonster(monster);
             if (closeUp) yield return EndCloseUp();
             yield return new WaitForSeconds(0.45f);
         }
 
-        /// <summary>El golpe: resta vida al defensor (o LP en un ataque directo) y lo muestra.</summary>
+        /// <summary>
+        /// El golpe: resta vida al defensor (o LP en un ataque directo). Un defensor boca arriba
+        /// en ataque contraataca con su ATK y, si muere, el daño sobrante pasa a los LP de su
+        /// dueño; en defensa (o boca abajo) ni contraataca ni deja pasar daño.
+        /// </summary>
         private void ApplyHit(CardView attacker, CardView defender, Vector3 impact)
         {
             int defenderOwner = 1 - attacker.Owner;
@@ -1120,12 +1188,16 @@ namespace CardDuel.Prototype
             if (defender == null)
             {
                 lifePoints[defenderOwner] = Mathf.Max(lifePoints[defenderOwner] - damage, 0);
+                Impact(damage);
                 Popup(impact, $"-{damage}");
                 ShowMessage(defenderOwner == Player
                     ? $"¡{attacker.Data.displayName} te ataca directamente! Pierdes {damage} LP."
                     : $"¡Ataque directo de {attacker.Data.displayName}! El rival pierde {damage} LP.");
                 return;
             }
+
+            bool fightsBack = FightsBack(defender);
+            int lifeBefore = defender.Life;
 
             // Un monstruo boca abajo se revela al ser atacado; si no, acusa el golpe.
             if (!defender.FaceUp)
@@ -1138,22 +1210,61 @@ namespace CardDuel.Prototype
             else
             {
                 defender.transform.DOPunchPosition(Vector3.right * 0.1f, 0.3f, 12);
-                if (defender.Figure != null) defender.Figure.PlayHit();
+                if (defender.Figure != null)
+                {
+                    if (fightsBack) defender.Figure.PlayAttack();
+                    else defender.Figure.PlayHit();
+                }
             }
 
             defender.SetLife(defender.Life - damage);
+            Impact(damage);
             Popup(impact, $"-{damage}");
-
             string names = $"{attacker.Data.displayName} ataca a {defender.Data.displayName}";
-            ShowMessage(defender.Life <= 0
-                ? $"¡{names} y lo destruye!"
-                : $"{names}: le quedan {defender.Life} de vida.");
+            string result = defender.Life <= 0 ? $"¡{names} y lo destruye!" : $"{names}: le quedan {defender.Life} de vida.";
+
+            if (!fightsBack)
+            {
+                ShowMessage(result);
+                return;
+            }
+
+            // Daño sobrante a los LP del dueño del defensor.
+            int overflow = Mathf.Max(0, damage - lifeBefore);
+            if (overflow > 0)
+            {
+                lifePoints[defenderOwner] = Mathf.Max(lifePoints[defenderOwner] - overflow, 0);
+                Popup(ImpactPoint(null, defenderOwner), $"-{overflow} LP");
+                result += $" {overflow} de daño pasa a los LP.";
+            }
+
+            // Contraataque: el atacante recibe el ATK del defensor.
+            int counter = defender.Data.attack;
+            attacker.SetLife(attacker.Life - counter);
+            var attackerPoint = attacker.Figure != null
+                ? board.transform.InverseTransformPoint(attacker.Figure.transform.position)
+                : board.CardPosition(attacker.Zone);
+            Popup(attackerPoint, $"-{counter}");
+            if (attacker.Figure != null)
+            {
+                var hitFigure = attacker.Figure;
+                DOVirtual.DelayedCall(0.25f, () => { if (hitFigure != null) hitFigure.PlayHit(); });
+            }
+            result += attacker.Life <= 0
+                ? $" ¡{defender.Data.displayName} contraataca y lo destruye!"
+                : $" {defender.Data.displayName} contraataca: -{counter}.";
+            ShowMessage(result, 5f);
         }
+
+        /// <summary>Solo contraataca (y deja pasar daño sobrante) un monstruo boca arriba en posición de ataque.</summary>
+        private static bool FightsBack(CardView defender) =>
+            defender != null && defender.FaceUp && !defender.DefensePosition;
 
         /// <summary>El monstruo muere (animación y sonido) y su carta va al cementerio.</summary>
         private IEnumerator DestroyMonster(CardView defender)
         {
             audioSource.PlayOneShot(SoundFx.Death);
+            Shake(0.06f, 0.3f);
             if (defender.Figure != null)
             {
                 float dying = defender.Figure.Die();
@@ -1219,7 +1330,7 @@ namespace CardDuel.Prototype
         private IEnumerator EnemyTurn()
         {
             ShowMessage("Turno del rival.");
-            yield return new WaitForSeconds(enemyActionDelay);
+            yield return new WaitForSeconds(Mathf.Max(enemyActionDelay, BannerDuration));
 
             var summon = ChooseEnemySummon(out var sacrifices);
             if (summon != null)
@@ -1249,7 +1360,9 @@ namespace CardDuel.Prototype
                 if (gameOver) yield break;
                 if (!CanAttack(attacker)) continue;
 
-                yield return Attack(attacker, ChooseEnemyTarget(attacker));
+                var target = ChooseEnemyTarget(attacker, out bool worthIt);
+                if (!worthIt) continue;
+                yield return Attack(attacker, target);
                 yield return new WaitForSeconds(enemyActionDelay * 0.6f);
             }
 
@@ -1288,22 +1401,40 @@ namespace CardDuel.Prototype
             return best;
         }
 
-        /// <summary>Prefiere rematar al monstruo más fuerte que pueda destruir; si no, desgasta al de menos vida.</summary>
-        private CardView ChooseEnemyTarget(CardView attacker)
+        /// <summary>
+        /// Elige objetivo puntuando cada opción: destruir monstruos (cuanto más fuertes, mejor) y
+        /// el daño sobrante suman; morir por el contraataque resta mucho. Sin monstruos rivales,
+        /// ataque directo (null). <paramref name="worthIt"/> es false si cualquier ataque sale a perder.
+        /// </summary>
+        private CardView ChooseEnemyTarget(CardView attacker, out bool worthIt)
         {
+            worthIt = true;
             var targets = OwnMonsters(Player);
             if (targets.Count == 0) return null;
 
-            CardView killable = null;
-            CardView weakest = null;
+            int atk = attacker.Data.attack;
+            CardView best = null;
+            float bestScore = float.MinValue;
             foreach (var target in targets)
             {
-                if (target.Life <= attacker.Data.attack && (killable == null || target.Data.attack > killable.Data.attack))
-                    killable = target;
-                if (weakest == null || target.Life < weakest.Life)
-                    weakest = target;
+                bool kills = target.Life <= atk;
+                bool counters = FightsBack(target);
+                bool dies = counters && target.Data.attack >= attacker.Life;
+
+                float score = kills ? 1000f + target.Data.attack : atk * 0.2f;
+                if (kills && counters) score += atk - target.Life;
+                if (dies) score -= kills ? 600f : 2000f;
+                if (counters && !dies) score -= target.Data.attack * 0.3f;
+
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    best = target;
+                }
             }
-            return killable != null ? killable : weakest;
+
+            worthIt = bestScore > 0f;
+            return best;
         }
 
         private void ShowMessage(string text, float seconds = 4f)
@@ -1450,6 +1581,7 @@ namespace CardDuel.Prototype
             }
 
             DrawPortrait(width);
+            DrawTurnBanner(width);
 
             // Escena de invocación: sin HUD, solo el nombre del monstruo abajo, con sombra.
             if (inCinematic)
@@ -1470,15 +1602,24 @@ namespace CardDuel.Prototype
                 : currentPlayer == Player ? "<color=#80d0ff>Tu turno</color>"
                 : "<color=#ff9090>Turno del rival</color>";
 
+            // Panel de estado: turno, barras de LP animadas de los dos jugadores y datos de mazo y mano.
             Panel(new Rect(12, 12, 300, 238));
-            GUI.Label(new Rect(26, 20, 276, 226),
-                $"<b><size=24>Turno {Mathf.Max(turn, 1)}</size></b>  {whose}\n" +
-                $"<b>Tú</b>   LP <color=#80d0ff><b>{lifePoints[Player]}</b></color>\n" +
-                $"<size=15>Mazo {decks[Player].Count} · Mano {Hand.Count} · Cementerio {graveyards[Player].Count}</size>\n" +
-                $"<b>Rival</b>   LP <color=#ff9090><b>{lifePoints[Opponent]}</b></color>   <size=16>Maná <color=#8fc8ff>{mana[Opponent]}</color>/{maxMana[Opponent]}</size>\n" +
-                $"<size=15>Mazo {decks[Opponent].Count} · Mano {hands[Opponent].Count} · Cementerio {graveyards[Opponent].Count}</size>\n" +
+            GUI.Label(new Rect(26, 16, 276, 32), $"<b><size=24>Turno {Mathf.Max(turn, 1)}</size></b>  {whose}", labelStyle);
+
+            GUI.Label(new Rect(26, 50, 60, 24), "<b>Tú</b>", labelStyle);
+            DrawLifeBar(new Rect(86, 52, 212, 22), Player);
+            GUI.Label(new Rect(26, 76, 276, 22),
+                $"<size=15>Mazo {decks[Player].Count} · Mano {Hand.Count} · Cementerio {graveyards[Player].Count}</size>", labelStyle);
+
+            GUI.Label(new Rect(26, 104, 60, 24), "<b>Rival</b>", labelStyle);
+            DrawLifeBar(new Rect(86, 106, 212, 22), Opponent);
+            GUI.Label(new Rect(26, 130, 276, 22),
+                $"<size=15>Mazo {decks[Opponent].Count} · Mano {hands[Opponent].Count} · Cementerio {graveyards[Opponent].Count} · " +
+                $"Maná <color=#8fc8ff>{mana[Opponent]}</color>/{maxMana[Opponent]}</size>", labelStyle);
+
+            GUI.Label(new Rect(26, 158, 276, 90),
                 $"Invocación Normal: {(normalSummonUsed ? "<color=#ff8080>usada</color>" : "<color=#80ff80>disponible</color>")}\n" +
-                "<size=15><color=#bbbbbb>Arrastra cartas al campo. Toca tus monstruos para atacar.</color></size>",
+                "<size=15><color=#bbbbbb>Arrastra lo que brilla: cartas al campo y monstruos hacia el rival.</color></size>",
                 labelStyle);
 
             bool canEndTurn = IsPlayerTurn && (state == State.Idle || state == State.CardSelected);
@@ -1546,6 +1687,8 @@ namespace CardDuel.Prototype
             GUI.enabled = enabled;
             bool clicked = GUI.Button(rect, label, style ?? buttonStyle);
             GUI.enabled = previous;
+            // Los botones invisibles (el retrato) ya tienen su propio sonido.
+            if (clicked && enabled && style != GUIStyle.none) audioSource.PlayOneShot(SoundFx.Click, 0.7f);
             return clicked && enabled;
         }
 

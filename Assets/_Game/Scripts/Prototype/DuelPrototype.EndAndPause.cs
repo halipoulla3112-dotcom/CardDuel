@@ -97,7 +97,6 @@ namespace CardDuel.Prototype
             paused = !paused;
             pauseSettings = false;
             Time.timeScale = paused ? 0f : 1f;
-            audioSource.PlayOneShot(SoundFx.Emote, 0.4f);
         }
 
         private void DrawPause(float width)
@@ -113,8 +112,8 @@ namespace CardDuel.Prototype
             float x = panel.x + 50f, w = panel.width - 100f;
             if (pauseSettings)
             {
-                UiKit.VolumeControls(new Rect(x, panel.y + 130f, w, 160f));
-                if (Button(new Rect(x, panel.y + 400f, w, 64f), "← Volver", true, MenuButtonStyle)) pauseSettings = false;
+                UiKit.VolumeControls(new Rect(x, panel.y + 120f, w, 240f));
+                if (Button(new Rect(x, panel.y + 410f, w, 64f), "← Volver", true, MenuButtonStyle)) pauseSettings = false;
                 return;
             }
 

@@ -50,13 +50,15 @@ namespace CardDuel.Prototype
             }
         }
 
-        /// <summary>Barras de "Volumen general" y "Efectos" dentro de un rectángulo (unos 340 × 150).</summary>
+        /// <summary>Barras de "Volumen general", "Música" y "Efectos" dentro de un rectángulo (unos 340 × 230).</summary>
         public static void VolumeControls(Rect area)
         {
             EnsureSliderStyles();
             float master = Slider(new Rect(area.x, area.y, area.width, 70f), "Volumen general", GameSettings.MasterVolume);
             if (!Mathf.Approximately(master, GameSettings.MasterVolume)) GameSettings.MasterVolume = master;
-            float effects = Slider(new Rect(area.x, area.y + 80f, area.width, 70f), "Efectos", GameSettings.EffectsVolume);
+            float music = Slider(new Rect(area.x, area.y + 80f, area.width, 70f), "Música", GameSettings.MusicVolume);
+            if (!Mathf.Approximately(music, GameSettings.MusicVolume)) GameSettings.MusicVolume = music;
+            float effects = Slider(new Rect(area.x, area.y + 160f, area.width, 70f), "Efectos", GameSettings.EffectsVolume);
             if (!Mathf.Approximately(effects, GameSettings.EffectsVolume)) GameSettings.EffectsVolume = effects;
         }
 

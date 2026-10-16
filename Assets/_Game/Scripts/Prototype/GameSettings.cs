@@ -2,21 +2,30 @@ using UnityEngine;
 
 namespace CardDuel.Prototype
 {
-    /// <summary>Ajustes del jugador (volumen general y de efectos), guardados entre partidas.</summary>
+    /// <summary>Ajustes del jugador (volumen general, de música y de efectos), guardados entre partidas.</summary>
     public static class GameSettings
     {
         private const string MasterKey = "CardDuel.MasterVolume";
         private const string EffectsKey = "CardDuel.EffectsVolume";
+        private const string MusicKey = "CardDuel.MusicVolume";
 
         private static bool loaded;
         private static float master = 1f;
         private static float effects = 1f;
+        private static float music = 0.8f;
 
         /// <summary>Volumen de todo el juego (0–1).</summary>
         public static float MasterVolume
         {
             get { Load(); return master; }
             set { Load(); master = Mathf.Clamp01(value); Apply(); PlayerPrefs.SetFloat(MasterKey, master); }
+        }
+
+        /// <summary>Volumen de la música de fondo (0–1).</summary>
+        public static float MusicVolume
+        {
+            get { Load(); return music; }
+            set { Load(); music = Mathf.Clamp01(value); PlayerPrefs.SetFloat(MusicKey, music); }
         }
 
         /// <summary>Volumen de los efectos de sonido (0–1).</summary>
@@ -41,6 +50,7 @@ namespace CardDuel.Prototype
             loaded = true;
             master = PlayerPrefs.GetFloat(MasterKey, 1f);
             effects = PlayerPrefs.GetFloat(EffectsKey, 1f);
+            music = PlayerPrefs.GetFloat(MusicKey, 0.8f);
         }
     }
 }
