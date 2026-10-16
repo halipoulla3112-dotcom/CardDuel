@@ -19,9 +19,9 @@ namespace CardDuel.Prototype
         private const float SideColumnX = 4.1f;
         private static readonly float[] Columns = { -2.6f, -1.3f, 0f, 1.3f, 2.6f };
 
-        private static readonly Color MonsterZoneColor = new Color(0.58f, 0.36f, 0.16f);
-        private static readonly Color SpellTrapZoneColor = new Color(0.14f, 0.48f, 0.45f);
-        private static readonly Color SideZoneColor = new Color(0.3f, 0.3f, 0.38f);
+        private static readonly Color MonsterZoneColor = new Color(0.85f, 0.55f, 0.25f);
+        private static readonly Color SpellTrapZoneColor = new Color(0.2f, 0.68f, 0.64f);
+        private static readonly Color SideZoneColor = new Color(0.48f, 0.5f, 0.62f);
         private static readonly Color BorderColor = new Color(0.75f, 0.62f, 0.30f);
         private static readonly Color LabelColor = new Color(0.85f, 0.75f, 0.45f);
 

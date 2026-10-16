@@ -5,7 +5,7 @@ using UnityEngine.Rendering.Universal;
 namespace CardDuel.Prototype
 {
     /// <summary>
-    /// Acabado visual: post-procesado de URP (bloom, ACES, etalonaje cálido y
+    /// Acabado visual: post-procesado de URP (bloom, tonemapping neutro, etalonaje luminoso y
     /// colorido, viñeta, grano), profundidad de campo para los primeros planos y
     /// partículas flotando (polen y motas de polvo dorado).
     /// </summary>
@@ -39,30 +39,31 @@ namespace CardDuel.Prototype
             volume.profile = profile;
 
             var tonemapping = profile.Add<Tonemapping>(true);
-            tonemapping.mode.Override(TonemappingMode.ACES);
+            // Neutral oscurece menos que ACES y deja los colores más limpios.
+            tonemapping.mode.Override(TonemappingMode.Neutral);
 
             var bloom = profile.Add<Bloom>(true);
-            bloom.threshold.Override(1f);
-            bloom.intensity.Override(0.7f);
+            bloom.threshold.Override(1.1f);
+            bloom.intensity.Override(0.55f);
             bloom.scatter.Override(0.7f);
-            bloom.tint.Override(new Color(1f, 0.92f, 0.8f));
+            bloom.tint.Override(new Color(1f, 0.96f, 0.88f));
 
-            // Colores vivos de tarde de verano.
+            // Pleno día y colores vivos.
             var color = profile.Add<ColorAdjustments>(true);
-            color.postExposure.Override(0.15f);
-            color.contrast.Override(12f);
-            color.saturation.Override(24f);
+            color.postExposure.Override(0.2f);
+            color.contrast.Override(10f);
+            color.saturation.Override(18f);
 
-            // Sombras ligeramente azuladas y luces doradas.
+            // Sombras levantadas (sin zonas negras) y luces algo cálidas.
             var tones = profile.Add<ShadowsMidtonesHighlights>(true);
-            tones.shadows.Override(new Vector4(0.96f, 0.99f, 1.08f, 0f));
-            tones.midtones.Override(new Vector4(1f, 1f, 0.98f, 0f));
-            tones.highlights.Override(new Vector4(1.07f, 1.02f, 0.93f, 0.02f));
+            tones.shadows.Override(new Vector4(1f, 1.02f, 1.08f, 0.08f));
+            tones.midtones.Override(new Vector4(1f, 1f, 1f, 0.04f));
+            tones.highlights.Override(new Vector4(1.04f, 1.02f, 0.97f, 0f));
 
             var vignette = profile.Add<Vignette>(true);
-            vignette.intensity.Override(0.22f);
+            vignette.intensity.Override(0.12f);
             vignette.smoothness.Override(0.5f);
-            vignette.color.Override(new Color(0.12f, 0.07f, 0.03f));
+            vignette.color.Override(new Color(0.15f, 0.12f, 0.08f));
 
             var grain = profile.Add<FilmGrain>(true);
             grain.type.Override(FilmGrainLookup.Thin1);

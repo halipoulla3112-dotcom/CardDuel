@@ -20,8 +20,8 @@ namespace CardDuel.Prototype
         {
             float patches = Noise(x * 0.03f, y * 0.03f);
             float blades = Noise(x * 0.9f, y * 0.25f);
-            float g = 0.45f + 0.18f * patches + 0.12f * (blades - 0.5f) + 0.05f * (Hash(x, y) - 0.5f);
-            var color = new Color(0.32f * g + 0.06f, g, 0.18f * g);
+            float g = 0.6f + 0.16f * patches + 0.1f * (blades - 0.5f) + 0.05f * (Hash(x, y) - 0.5f);
+            var color = new Color(0.38f * g + 0.08f, g, 0.2f * g);
 
             // Florecillas sueltas (blancas y amarillas).
             float flower = Hash(x / 6, y / 6);

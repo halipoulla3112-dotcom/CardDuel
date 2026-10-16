@@ -6,7 +6,7 @@ namespace CardDuel.Prototype
     /// <summary>
     /// Granja al aire libre construida por código alrededor del tablero: pradera,
     /// colinas, granero rojo, silo, molino, casa de campo, vallas, árboles,
-    /// balas de paja, huerto, flores y nubes, con sol de tarde y bruma suave.
+    /// balas de paja, huerto, flores y nubes, a pleno sol y con bruma lejana.
     /// </summary>
     public static class FarmEnvironment
     {
@@ -347,41 +347,43 @@ namespace CardDuel.Prototype
 
         // ---------------------------------------------------------- Ambiente
 
-        /// <summary>Cielo azul con sol de tarde detrás de ti (ilumina el tablero de frente), ambiente cálido y bruma.</summary>
+        /// <summary>Pleno día: cielo azul, sol alto detrás de ti (ilumina el tablero de frente), mucha luz ambiente y bruma lejana.</summary>
         private static void SetupSunnyDay()
         {
             var skyShader = Shader.Find("Skybox/Procedural");
             if (skyShader != null)
             {
                 var sky = new Material(skyShader);
-                sky.SetColor("_SkyTint", new Color(0.45f, 0.58f, 0.85f));
-                sky.SetColor("_GroundColor", new Color(0.45f, 0.55f, 0.35f));
-                sky.SetFloat("_AtmosphereThickness", 0.9f);
-                sky.SetFloat("_Exposure", 1.25f);
+                sky.SetColor("_SkyTint", new Color(0.4f, 0.6f, 1f));
+                sky.SetColor("_GroundColor", new Color(0.55f, 0.68f, 0.42f));
+                sky.SetFloat("_AtmosphereThickness", 0.75f);
+                sky.SetFloat("_Exposure", 1.7f);
                 sky.SetFloat("_SunSize", 0.06f);
                 sky.SetFloat("_SunSizeConvergence", 4f);
                 RenderSettings.skybox = sky;
             }
 
             RenderSettings.ambientMode = AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(0.62f, 0.72f, 0.9f);
-            RenderSettings.ambientEquatorColor = new Color(0.62f, 0.62f, 0.52f);
-            RenderSettings.ambientGroundColor = new Color(0.3f, 0.36f, 0.22f);
+            // Pleno día: mucha luz de cielo azul y rebote verde claro del prado.
+            RenderSettings.ambientSkyColor = new Color(0.9f, 0.95f, 1.05f);
+            RenderSettings.ambientEquatorColor = new Color(0.85f, 0.88f, 0.8f);
+            RenderSettings.ambientGroundColor = new Color(0.55f, 0.62f, 0.45f);
+            RenderSettings.ambientIntensity = 1.2f;
 
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogColor = new Color(0.72f, 0.8f, 0.9f);
-            RenderSettings.fogStartDistance = 45f;
-            RenderSettings.fogEndDistance = 170f;
+            RenderSettings.fogColor = new Color(0.8f, 0.88f, 0.98f);
+            RenderSettings.fogStartDistance = 70f;
+            RenderSettings.fogEndDistance = 220f;
 
             foreach (var light in Object.FindObjectsByType<Light>())
             {
                 if (light.type != LightType.Directional) continue;
-                light.color = new Color(1f, 0.9f, 0.74f);
-                light.intensity = 1.45f;
+                light.color = new Color(1f, 0.96f, 0.88f);
+                light.intensity = 2.1f;
                 light.shadows = LightShadows.Soft;
-                light.shadowStrength = 0.75f;
-                light.transform.rotation = Quaternion.Euler(30f, -31f, 0f);
+                light.shadowStrength = 0.55f;
+                light.transform.rotation = Quaternion.Euler(52f, -28f, 0f);
                 RenderSettings.sun = light;
             }
 
