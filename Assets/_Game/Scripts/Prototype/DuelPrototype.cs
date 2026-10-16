@@ -16,7 +16,7 @@ namespace CardDuel.Prototype
     /// monstruo va al cementerio; sin monstruos, el ataque va directo a los LP.
     /// Funciona con ratón y con pantalla táctil.
     /// </summary>
-    public class DuelPrototype : MonoBehaviour
+    public partial class DuelPrototype : MonoBehaviour
     {
         private enum State { Busy, Idle, CardSelected, ChoosingTributes, ChoosingTarget, Inspecting }
         private enum PlayMode { None, SummonAttack, SetMonster, ActivateSpell, SetSpellTrap }
@@ -1489,6 +1489,8 @@ namespace CardDuel.Prototype
             GUI.color = new Color(1f, 1f, 1f, portraitAlpha);
             GUI.DrawTexture(rect, portrait, ScaleMode.ScaleToFit, true);
             GUI.color = previous;
+
+            DrawEmotes(rect);
         }
 
         private void Panel(Rect rect)

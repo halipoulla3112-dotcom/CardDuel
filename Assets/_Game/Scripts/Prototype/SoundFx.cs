@@ -17,6 +17,14 @@ namespace CardDuel.Prototype
         private static AudioClip coinLand;
         private static AudioClip summon;
         private static AudioClip death;
+        private static AudioClip emote;
+
+        /// <summary>"Plin" corto de dos notas ascendentes al decir una frase.</summary>
+        public static AudioClip Emote => emote != null ? emote : emote = Build("Emote", 0.5f, (data, rng) =>
+        {
+            AddChord(data, 0f, 0.35f, new[] { 784f, 1568f }, 0.6f);
+            AddChord(data, 0.08f, 0.4f, new[] { 1046.5f, 2093f }, 0.6f);
+        });
 
         /// <summary>Lamento con tono que cae, crujido que se desmorona y golpe sordo al caer el monstruo.</summary>
         public static AudioClip Death => death != null ? death : death = Build("Death", 1.8f, (data, rng) =>
