@@ -182,6 +182,7 @@ namespace CardDuel.Prototype
         private IEnumerator BeginDuel()
         {
             bool playerFirst = UnityEngine.Random.value < 0.5f;
+            firstPlayer = playerFirst ? Player : Opponent;
             ShowMessage("Lanzando la moneda...");
             yield return CoinToss(playerFirst);
             ShowMessage(playerFirst ? "¡Sale TÚ! Empiezas tú." : "Sale RIVAL. Empieza el rival.");
@@ -247,6 +248,7 @@ namespace CardDuel.Prototype
             turn++;
             currentPlayer = owner;
             normalSummonUsed = false;
+            RefillMana(owner);
 
             // Quien empieza el duelo no roba en su primer turno.
             if (turn > 1 && DrawCard(owner) == null) return;
@@ -508,6 +510,12 @@ namespace CardDuel.Prototype
         {
             var zones = new List<BoardZone>();
             var data = card.Data;
+
+            if (!CanPay(Player, data.cost))
+            {
+                ShowMessage($"Te falta maná: {data.displayName} cuesta {data.cost} y tienes {mana[Player]}.");
+                return zones;
+            }
 
             if (data.cardType == CardType.Monster)
             {
@@ -782,6 +790,7 @@ namespace CardDuel.Prototype
             placeFaceDown = false;
             state = State.Idle;
             if (hovered == card) hovered = null;
+            Pay(Player, card.Data.cost);
 
             bool faceUp = mode == PlayMode.SummonAttack || mode == PlayMode.ActivateSpell;
             bool cinematic = mode == PlayMode.SummonAttack;
@@ -1226,6 +1235,7 @@ namespace CardDuel.Prototype
                 bool setDefense = summon.Data.defense >= summon.Data.attack + 500;
                 var zone = Array.Find(board.MonsterZones[Opponent], z => z.IsFree);
                 var move = PlaceOnField(summon, zone, !setDefense, setDefense, spawnFigure: false);
+                Pay(Opponent, summon.Data.cost);
                 normalSummonUsed = true;
                 ShowMessage(setDefense
                     ? "El rival coloca un monstruo boca abajo en defensa."
@@ -1249,7 +1259,7 @@ namespace CardDuel.Prototype
             StartTurn(Player);
         }
 
-        /// <summary>El monstruo de mayor ATK que el rival pueda invocar, sacrificando a sus más débiles si compensa.</summary>
+        /// <summary>El monstruo de mayor ATK que el rival pueda pagar e invocar, sacrificando a sus más débiles si compensa.</summary>
         private CardView ChooseEnemySummon(out List<CardView> sacrifices)
         {
             sacrifices = new List<CardView>();
@@ -1261,7 +1271,7 @@ namespace CardDuel.Prototype
             foreach (var card in hands[Opponent])
             {
                 var data = card.Data;
-                if (data.cardType != CardType.Monster) continue;
+                if (data.cardType != CardType.Monster || !CanPay(Opponent, data.cost)) continue;
 
                 int needed = TributesFor(data.level);
                 if (needed > own.Count || (needed == 0 && !freeZone)) continue;
@@ -1376,6 +1386,7 @@ namespace CardDuel.Prototype
 
             if (selected.Location == CardLocation.Hand)
             {
+                if (!CanPay(Player, data.cost)) return $"Te falta maná: cuesta {data.cost} y tienes {mana[Player]}.";
                 if (monster && normalSummonUsed) return "Ya hiciste tu Invocación Normal este turno.";
                 int needed = monster ? TributesFor(data.level) : 0;
                 string tributesText = needed > 0 ? $" Necesita {needed} tributo{(needed > 1 ? "s" : "")}." : "";
@@ -1407,7 +1418,8 @@ namespace CardDuel.Prototype
                 if (card.Location == CardLocation.Field)
                     stats += $"\nVida: <color={(card.Life < data.defense ? "#ff7070" : "#80ff80")}>{card.Life}</color> / {data.defense}";
             }
-            return $"<b><size=22>{data.displayName}</size></b>\n<color=#f0c060>{CardFactory.TypeLine(data)}</color>{stats}\n\n{data.description}";
+            return $"<b><size=22>{data.displayName}</size></b>  <color=#8fc8ff><b>{data.cost} maná</b></color>\n" +
+                   $"<color=#f0c060>{CardFactory.TypeLine(data)}</color>{stats}\n\n{data.description}";
         }
 
         private void OnGUI()
@@ -1463,7 +1475,7 @@ namespace CardDuel.Prototype
                 $"<b><size=24>Turno {Mathf.Max(turn, 1)}</size></b>  {whose}\n" +
                 $"<b>Tú</b>   LP <color=#80d0ff><b>{lifePoints[Player]}</b></color>\n" +
                 $"<size=15>Mazo {decks[Player].Count} · Mano {Hand.Count} · Cementerio {graveyards[Player].Count}</size>\n" +
-                $"<b>Rival</b>   LP <color=#ff9090><b>{lifePoints[Opponent]}</b></color>\n" +
+                $"<b>Rival</b>   LP <color=#ff9090><b>{lifePoints[Opponent]}</b></color>   <size=16>Maná <color=#8fc8ff>{mana[Opponent]}</color>/{maxMana[Opponent]}</size>\n" +
                 $"<size=15>Mazo {decks[Opponent].Count} · Mano {hands[Opponent].Count} · Cementerio {graveyards[Opponent].Count}</size>\n" +
                 $"Invocación Normal: {(normalSummonUsed ? "<color=#ff8080>usada</color>" : "<color=#80ff80>disponible</color>")}\n" +
                 "<size=15><color=#bbbbbb>Arrastra cartas al campo. Toca tus monstruos para atacar.</color></size>",
@@ -1474,6 +1486,7 @@ namespace CardDuel.Prototype
             if (Button(new Rect(12, 320, 300, 52), "Reiniciar", true)) Restart();
             if (Button(new Rect(12, 380, 300, 52), "Menú", true)) PrototypeBootstrap.LoadMenu();
             if (Button(new Rect(320, 12, 56, 56), "II", true, PauseButtonStyle)) TogglePause();
+            DrawMana();
 
             // Mensajes
             if (Time.time < messageUntil)

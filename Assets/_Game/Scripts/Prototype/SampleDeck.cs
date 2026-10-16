@@ -23,18 +23,19 @@ namespace CardDuel.Prototype
                     card.attack = atk;
                     card.defense = def;
                     card.attribute = attribute;
+                    card.cost = CostForLevel(level);
                     cards.Add(card);
                 }
             }
 
-            void Spell(string name, string description, int copies = 1)
+            void Spell(string name, int cost, string description, int copies = 1)
             {
-                for (int i = 0; i < copies; i++) cards.Add(Create(name, CardType.Spell, description));
+                for (int i = 0; i < copies; i++) cards.Add(Create(name, CardType.Spell, description, cost));
             }
 
-            void Trap(string name, string description, int copies = 1)
+            void Trap(string name, int cost, string description, int copies = 1)
             {
-                for (int i = 0; i < copies; i++) cards.Add(Create(name, CardType.Trap, description));
+                for (int i = 0; i < copies; i++) cards.Add(Create(name, CardType.Trap, description, cost));
             }
 
             Monster("Caballero de Ceniza", 4, 1800, 1200, CardAttribute.Fire, "Un guerrero forjado en las brasas de un volcán dormido.", 2);
@@ -49,19 +50,22 @@ namespace CardDuel.Prototype
             Monster("Titán de las Mareas", 6, 2300, 1800, CardAttribute.Water, "Requiere 1 tributo. Surge del fondo del océano.");
             Monster("Dragón de Obsidiana", 7, 2600, 2100, CardAttribute.Dark, "Requiere 2 tributos. Sus escamas son de cristal volcánico.");
 
-            Spell("Poción de Vida", "Ganas 1000 puntos de vida.", 2);
-            Spell("Tormenta de Rayos", "Destruye un monstruo del rival.");
-            Spell("Espada Encantada", "Un monstruo gana 500 ATK.");
-            Spell("Portal Arcano", "Roba 2 cartas.");
+            Spell("Poción de Vida", 1, "Ganas 1000 puntos de vida.", 2);
+            Spell("Tormenta de Rayos", 3, "Destruye un monstruo del rival.");
+            Spell("Espada Encantada", 2, "Un monstruo gana 500 ATK.");
+            Spell("Portal Arcano", 2, "Roba 2 cartas.");
 
-            Trap("Escudo Espejo", "Cuando el rival ataque: destruye al atacante.");
-            Trap("Foso Sin Fondo", "Cuando el rival invoque un monstruo: destiérralo.");
-            Trap("Cadenas de Sombra", "Un monstruo rival no puede atacar.");
+            Trap("Escudo Espejo", 3, "Cuando el rival ataque: destruye al atacante.");
+            Trap("Foso Sin Fondo", 2, "Cuando el rival invoque un monstruo: destiérralo.");
+            Trap("Cadenas de Sombra", 2, "Un monstruo rival no puede atacar.");
 
             return cards;
         }
 
-        private static CardData Create(string name, CardType type, string description)
+        /// <summary>Coste en maná según el nivel: nivel 1-2 → 1, y a partir de ahí nivel - 1.</summary>
+        private static int CostForLevel(int level) => Mathf.Max(1, level - 1);
+
+        private static CardData Create(string name, CardType type, string description, int cost = 1)
         {
             var card = ScriptableObject.CreateInstance<CardData>();
             card.name = name;
@@ -69,6 +73,7 @@ namespace CardDuel.Prototype
             card.displayName = name;
             card.cardType = type;
             card.description = description;
+            card.cost = cost;
             return card;
         }
     }

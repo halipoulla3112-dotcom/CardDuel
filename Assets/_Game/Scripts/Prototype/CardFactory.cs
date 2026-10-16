@@ -30,6 +30,7 @@ namespace CardDuel.Prototype
             Primitives.Box("Body", root.transform, Vector3.zero, new Vector3(Width, Thickness, Height), Primitives.Lit(BackColor));
             if (data.cardType == CardType.Monster && MonsterFrame != null) BuildMonsterFace(data, root.transform);
             else BuildFace(data, root.transform);
+            CostGem(root.transform.Find("Face"), data.cost);
             BuildBack(root.transform);
             return view;
         }
@@ -185,6 +186,21 @@ namespace CardDuel.Prototype
                 case CardAttribute.Wind: return new Color(0.3f, 0.75f, 0.4f);
                 default: return Color.gray;
             }
+        }
+
+        private static readonly Color ManaBlue = new Color(0.2f, 0.45f, 1f);
+
+        /// <summary>Gema azul con el coste en maná, en la esquina superior izquierda.</summary>
+        private static void CostGem(Transform face, int cost)
+        {
+            if (face == null) return;
+            var center = new Vector2(-Width * 0.5f + 0.06f, Height * 0.5f - 0.06f);
+            Primitives.Quad("CostRing", face, center, new Vector2(0.17f, 0.17f), 0.006f,
+                Primitives.Transparent(Primitives.CircleTexture, new Color(0.95f, 0.78f, 0.35f)));
+            Primitives.Quad("CostGem", face, center, new Vector2(0.14f, 0.14f), 0.007f,
+                Primitives.Transparent(Primitives.CircleTexture, ManaBlue));
+            var label = Primitives.Text("Cost", face, cost.ToString(), center, new Vector2(0.09f, 0.09f), 0.008f, Color.white);
+            label.fontStyle = TMPro.FontStyles.Bold;
         }
 
         private static void BuildBack(Transform card)

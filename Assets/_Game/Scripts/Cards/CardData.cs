@@ -19,6 +19,10 @@ namespace CardDuel.Cards
         [TextArea(3, 6)] public string description;
         public Sprite artwork;
 
+        [Header("Coste")]
+        [Tooltip("Maná que cuesta jugar la carta desde la mano.")]
+        [Range(0, 10)] public int cost = 1;
+
         [Header("Tipo")]
         public CardType cardType = CardType.Monster;
         public CardAttribute attribute = CardAttribute.None;
